@@ -1,0 +1,63 @@
+# Hyperparameters and experiment configuration
+# All training runs should reference this file.
+
+data:
+  sample_rate: 256          # Hz
+  n_channels: 23
+  window_sec: 4             # seconds per segment
+  window_samples: 1024      # 4s * 256 Hz
+  overlap: 0                # non-overlapping windows
+  bandpass_low: 0.5         # Hz
+  bandpass_high: 40.0       # Hz
+  seizure_overlap_thresh: 0.5  # fraction of window that must overlap seizure
+
+  # STFT parameters (for CNN input)
+  stft_window: 256
+  stft_hop: 128
+
+  # Class imbalance handling
+  interictal_to_ictal_ratio: 10
+
+preprocessing:
+  normalize: zscore         # zscore statistics computed from training set only
+
+training:
+  batch_size: 64
+  max_epochs: 50
+  learning_rate: 1.0e-3
+  weight_decay: 1.0e-4
+  optimizer: adam
+  early_stopping_patience: 7
+  seed: 42
+
+  # DANN-specific
+  dann_lambda_max: 1.0      # adversarial strength ceiling
+  dann_anneal_epochs: 20    # epochs over which lambda ramps from 0 to lambda_max
+
+evaluation:
+  primary_metric: auroc     # used for model selection and early stopping
+  report_metrics:
+    - auroc
+    - sensitivity
+    - specificity
+    - f1
+    - balanced_accuracy
+
+cnn_lstm:
+  eegnet_f1: 8              # number of temporal filters
+  eegnet_d: 2               # depthwise multiplier
+  lstm_hidden: 128
+  lstm_layers: 2
+  lstm_bidirectional: true
+  sequence_len: 10          # number of consecutive 4s windows fed to LSTM
+
+logistic_baseline:
+  freq_bands:
+    delta: [0.5, 4]
+    theta: [4, 8]
+    alpha: [8, 13]
+    beta: [13, 30]
+    gamma: [30, 40]
+  C: 1.0
+  max_iter: 1000
+  class_weight: balanced
