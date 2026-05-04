@@ -15,7 +15,7 @@ import numpy as np
 from scipy.signal import butter, sosfiltfilt
 from tqdm import tqdm
 
-from src.preprocessing.load_edf import load_all_subjects, load_edf, SubjectData
+from src.preprocessing.load_edf import load_all_subjects, load_edf, SubjectData, STANDARD_CHANNELS
 
 
 # ---------------------------------------------------------------------------
@@ -186,7 +186,7 @@ def process_subject(
     all_labels = []
 
     for record in subject_data.records:
-        signal, sfreq, _ = load_edf(record.edf_path)
+        signal, sfreq, _ = load_edf(record.edf_path, target_channels=STANDARD_CHANNELS)
         filtered = bandpass_filter(signal, bandpass_low, bandpass_high, sfreq)
         windows, labels = segment_and_label(
             filtered, sfreq, record.seizure_intervals,
