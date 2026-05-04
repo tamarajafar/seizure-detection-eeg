@@ -54,24 +54,40 @@ def get_device() -> torch.device:
 def evaluate_logistic(processed_dir: Path, config: dict, results_dir: Path):
     print("\n=== Architecture 1: Logistic Regression Baseline ===\n")
     fold_metrics = []
-    subject_ids = []
 
-    for fold in loso_folds(processed_dir, seed=config.get("seed", 42)):
-        sid = fold["test_subject"]
-        subject_ids.append(sid)
-        print(f"Fold: held-out = {sid}")
+    sfreq = config.get("sample_rate", 256)
 
-        train_feats = extract_features_batch(fold["train_windows"], sfreq=config.get("sample_rate", 256))
-        test_feats = extract_features_batch(fold["test_windows"], sfreq=config.get("sample_rate", 256))
+    # Discover subjects
+    subject_files = sorted(processed_dir.glob("chb*.npz"))
+    subject_ids = [f.stem for f in subject_files]
+    print(f"Found {len(subject_ids)} subjects: {subject_ids}")
+
+    # Extract features one subject at a time to avoid OOM
+    print("Extracting band-power features per subject...")
+    subject_feats = {}
+    subject_labels = {}
+    for sid in subject_ids:
+        w, l = load_subject_arrays(processed_dir, sid)
+        subject_feats[sid] = extract_features_batch(w, sfreq=sfreq)
+        subject_labels[sid] = l
+        del w  # free raw windows immediately
+        print(f"  {sid}: {len(l)} windows -> {subject_feats[sid].shape[1]} features")
+
+    # LOSO folds
+    for test_sid in subject_ids:
+        print(f"Fold: held-out = {test_sid}")
+
+        train_feats = np.concatenate([subject_feats[s] for s in subject_ids if s != test_sid])
+        train_labels = np.concatenate([subject_labels[s] for s in subject_ids if s != test_sid])
 
         pipeline = build_logistic_pipeline(
             C=config.get("C", 1.0),
             max_iter=config.get("max_iter", 1000),
         )
-        pipeline.fit(train_feats, fold["train_labels"])
-        y_prob = pipeline.predict_proba(test_feats)[:, 1]
+        pipeline.fit(train_feats, train_labels)
+        y_prob = pipeline.predict_proba(subject_feats[test_sid])[:, 1]
 
-        metrics = compute_metrics(fold["test_labels"], y_prob)
+        metrics = compute_metrics(subject_labels[test_sid], y_prob)
         fold_metrics.append(metrics)
         print(f"  AUROC={metrics['auroc']:.3f}  Sens={metrics['sensitivity']:.3f}  n_ictal={metrics['n_ictal']}")
 
