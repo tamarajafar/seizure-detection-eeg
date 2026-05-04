@@ -198,14 +198,10 @@ def process_subject(
     return np.concatenate(all_windows, axis=0), np.concatenate(all_labels, axis=0)
 
 
-def run_pipeline(data_dir: Path, out_dir: Path, config: dict | None = None):
+def run_pipeline(data_dir: Path, out_dir: Path, config: dict | None = None,
+                 subjects: list[str] | None = None):
     """
-    Preprocess all CHB-MIT subjects and save segmented arrays to disk.
-
-    Output files:
-        {out_dir}/windows_chb01.npy   -- shape (n_windows, n_channels, window_samples)
-        {out_dir}/labels_chb01.npy    -- shape (n_windows,)
-        {out_dir}/subject_ids.npy     -- maps window index to subject integer ID
+    Preprocess CHB-MIT subjects and save segmented arrays to disk.
 
     Parameters
     ----------
@@ -216,6 +212,9 @@ def run_pipeline(data_dir: Path, out_dir: Path, config: dict | None = None):
     config : dict, optional
         Override default preprocessing parameters. Keys: bandpass_low,
         bandpass_high, window_sec, overlap_thresh.
+    subjects : list of str, optional
+        Process only these subject IDs (e.g. ["chb01", "chb02"]).
+        Default: process all subjects found in data_dir.
     """
     cfg = {
         "bandpass_low": 0.5,
@@ -227,9 +226,12 @@ def run_pipeline(data_dir: Path, out_dir: Path, config: dict | None = None):
         cfg.update(config)
 
     out_dir.mkdir(parents=True, exist_ok=True)
-    subjects = load_all_subjects(data_dir)
+    all_subjects = load_all_subjects(data_dir)
+    if subjects:
+        keep = set(subjects)
+        all_subjects = [s for s in all_subjects if s.subject_id in keep]
 
-    for subject_data in tqdm(subjects, desc="Preprocessing subjects"):
+    for subject_data in tqdm(all_subjects, desc="Preprocessing subjects"):
         sid = subject_data.subject_id
         print(f"\n{sid}: {len(subject_data.records)} recordings, {subject_data.n_seizures} seizures")
 
@@ -250,6 +252,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Preprocess CHB-MIT EEG data")
     parser.add_argument("--data_dir", type=Path, default=Path("data/raw"))
     parser.add_argument("--out_dir", type=Path, default=Path("data/processed"))
+    parser.add_argument("--subjects", nargs="+", default=None,
+                        help="Process only these subjects (e.g. chb01 chb02). Default: all.")
     args = parser.parse_args()
 
-    run_pipeline(args.data_dir, args.out_dir)
+    run_pipeline(args.data_dir, args.out_dir, subjects=args.subjects)
