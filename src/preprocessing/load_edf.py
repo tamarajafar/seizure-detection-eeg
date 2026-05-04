@@ -215,13 +215,35 @@ def load_all_subjects(data_raw_dir: Path, target_channels: list | None = None) -
     ----------
     data_raw_dir : Path
         Root of the raw data directory (contains chb01/, chb02/, etc.).
+        Supports both flat structure (chb01/, chb02/, ...) and nested
+        PhysioNet structure (physionet.org/files/chbmit/1.0.0/chb01/, ...).
     target_channels : list of str, optional
 
     Returns
     -------
     list of SubjectData, sorted by subject_id
     """
+    # Try to find chb* directories at root level
     subject_dirs = sorted([d for d in data_raw_dir.iterdir() if d.is_dir() and d.name.startswith("chb")])
+    
+    # If not found, search recursively (for nested PhysioNet structure)
+    if not subject_dirs:
+        import warnings
+        warnings.warn(f"No chb* directories found at root of {data_raw_dir}. Searching recursively...")
+        subject_dirs = sorted([d for d in data_raw_dir.rglob("chb*") if d.is_dir() and d.name.startswith("chb")])
+        # Filter to only direct children of their parent (avoid duplicates)
+        if subject_dirs:
+            # Group by parent, keep only one level
+            parent_groups = {}
+            for d in subject_dirs:
+                parent = d.parent
+                if parent not in parent_groups:
+                    parent_groups[parent] = []
+                parent_groups[parent].append(d)
+            # Use the deepest/most specific level
+            subject_dirs = parent_groups[max(parent_groups.keys(), key=lambda p: len(p.parts))]
+            subject_dirs = sorted(subject_dirs)
+    
     subjects = []
     for d in subject_dirs:
         try:
