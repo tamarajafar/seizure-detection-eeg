@@ -24,5 +24,17 @@ python scripts/data_inspector.py data/raw
 
 echo ""
 echo "=========================================="
+echo "Deep Directory Structure (3 levels)"
+echo "=========================================="
+tree -L 3 -h data/raw 2>/dev/null || find data/raw -maxdepth 3 -type d | head -50
+
+echo ""
+echo "=========================================="
+echo "Sample files in each subdirectory"
+echo "=========================================="
+find data/raw -maxdepth 3 -type f | head -30
+
+echo ""
+echo "=========================================="
 echo "Data Inspection Completed: $(date)"
 echo "=========================================="
