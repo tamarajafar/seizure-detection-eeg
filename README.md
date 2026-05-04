@@ -81,7 +81,9 @@ Then download the CHB-MIT dataset -- see [data/README.md](data/README.md).
 ### Step 1: Preprocess
 
 ```bash
-python src/preprocessing/pipeline.py --data_dir data/raw --out_dir data/processed
+python src/preprocessing/pipeline.py \
+    --data_dir data/raw/physionet.org/files/chbmit/1.0.0 \
+    --out_dir data/processed
 ```
 
 ### Step 2: Train and evaluate (LOSO-CV)
