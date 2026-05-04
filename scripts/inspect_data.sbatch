@@ -21,6 +21,10 @@ echo "=========================================="
 cd $SLURM_SUBMIT_DIR
 echo "Working directory: $(pwd)"
 
+# Activate Python virtual environment
+source ~/ee541/bin/activate
+echo "Python: $(which python)"
+
 python scripts/data_inspector.py data/raw
 
 echo ""

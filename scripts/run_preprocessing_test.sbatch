@@ -24,6 +24,10 @@ mkdir -p /project2/bienkows_1550/ee541_proj
 cd $SLURM_SUBMIT_DIR
 echo "Working directory: $(pwd)"
 
+# Activate Python virtual environment
+source ~/ee541/bin/activate
+echo "Python: $(which python)"
+
 # Create a test data directory with symbolic links to just chb01-05
 TEST_DATA_DIR="data/test_raw"
 mkdir -p "$TEST_DATA_DIR"

@@ -25,6 +25,10 @@ mkdir -p /project2/bienkows_1550/ee541_proj
 cd $SLURM_SUBMIT_DIR
 echo "Working directory: $(pwd)"
 
+# Activate Python virtual environment
+source ~/ee541/bin/activate
+echo "Python: $(which python)"
+
 echo ""
 echo "Running preprocessing pipeline..."
 echo ""

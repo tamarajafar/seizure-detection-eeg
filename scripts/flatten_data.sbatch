@@ -21,6 +21,8 @@ echo "=========================================="
 cd $SLURM_SUBMIT_DIR
 echo "Working directory: $(pwd)"
 
+# Note: flatten_data.sbatch doesn't require Python, just uses bash
+
 PHYSIONET_DIR="data/raw/physionet.org/files/chbmit/1.0.0"
 DATA_DIR="data/raw"
 
