@@ -31,15 +31,35 @@ echo "Python: $(which python)"
 
 # Create a test data directory with symbolic links to just chb01-05
 TEST_DATA_DIR="data/test_raw"
+rm -rf "$TEST_DATA_DIR"  # Clean up any stale symlinks
 mkdir -p "$TEST_DATA_DIR"
 
 echo ""
 echo "Setting up test data with chb01-chb05..."
+
+# Get absolute paths
+PHYSIONET_PATH="$(pwd)/data/raw/physionet.org/files/chbmit/1.0.0"
+FLAT_PATH="$(pwd)/data/raw"
+
+if [ -d "$PHYSIONET_PATH/chb01" ]; then
+    echo "Found nested PhysioNet structure"
+    BASE_PATH="$PHYSIONET_PATH"
+elif [ -d "$FLAT_PATH/chb01" ]; then
+    echo "Found flat directory structure"
+    BASE_PATH="$FLAT_PATH"
+else
+    echo "ERROR: Could not find chb01 in either nested or flat structure"
+    exit 1
+fi
+
 for i in {01..05}; do
     subject="chb$i"
-    if [ -d "data/raw/$subject" ]; then
-        ln -sf "../../raw/$subject" "$TEST_DATA_DIR/$subject"
+    source_path="$BASE_PATH/$subject"
+    if [ -d "$source_path" ]; then
+        ln -sf "$source_path" "$TEST_DATA_DIR/$subject"
         echo "  Linked $subject"
+    else
+        echo "  WARNING: $subject not found at $source_path"
     fi
 done
 
