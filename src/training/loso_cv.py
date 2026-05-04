@@ -122,7 +122,7 @@ def loso_folds(processed_dir: Path, val_fraction: float = 0.1, seed: int = 42):
     Parameters
     ----------
     processed_dir : Path
-        Directory containing windows_chbXX.npy and labels_chbXX.npy files.
+        Directory containing chbXX.npz files.
     val_fraction : float
         Fraction of training subjects to use for validation.
     seed : int
@@ -139,8 +139,8 @@ def loso_folds(processed_dir: Path, val_fraction: float = 0.1, seed: int = 42):
     """
     rng = np.random.default_rng(seed)
 
-    subject_files = sorted(processed_dir.glob("windows_chb*.npy"))
-    subject_ids = [f.stem.replace("windows_", "") for f in subject_files]
+    subject_files = sorted(processed_dir.glob("chb*.npz"))
+    subject_ids = [f.stem for f in subject_files]
 
     for test_idx, test_subject in enumerate(subject_ids):
         train_subjects = [s for s in subject_ids if s != test_subject]

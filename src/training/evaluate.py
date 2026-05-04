@@ -94,8 +94,8 @@ def evaluate_cnn_lstm(processed_dir: Path, config: dict, results_dir: Path, subj
     fold_metrics = []
     subject_ids_out = []
 
-    subject_files = sorted(processed_dir.glob("windows_chb*.npy"))
-    all_subject_ids = [f.stem.replace("windows_", "") for f in subject_files]
+    subject_files = sorted(processed_dir.glob("chb*.npz"))
+    all_subject_ids = [f.stem for f in subject_files]
 
     for fold in loso_folds(processed_dir, seed=config.get("seed", 42)):
         sid = fold["test_subject"]
