@@ -18,7 +18,11 @@ echo "Start time: $(date)"
 echo "Running on node: $(hostname)"
 echo "=========================================="
 
-cd $SLURM_SUBMIT_DIR
+# Get repo root (parent of scripts directory)
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../" && pwd)"
+cd "$REPO_ROOT"
+
+echo "Working directory: $(pwd)"
 
 PHYSIONET_DIR="data/raw/physionet.org/files/chbmit/1.0.0"
 DATA_DIR="data/raw"

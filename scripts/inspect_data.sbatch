@@ -18,7 +18,11 @@ echo "Start time: $(date)"
 echo "Running on node: $(hostname)"
 echo "=========================================="
 
-cd $SLURM_SUBMIT_DIR
+# Get repo root (parent of scripts directory)
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../" && pwd)"
+cd "$REPO_ROOT"
+
+echo "Working directory: $(pwd)"
 
 python scripts/data_inspector.py data/raw
 
