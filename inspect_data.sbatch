@@ -24,15 +24,15 @@ python scripts/data_inspector.py data/raw
 
 echo ""
 echo "=========================================="
-echo "Deep Directory Structure (3 levels)"
+echo "Deep Directory Structure (5 levels)"
 echo "=========================================="
-tree -L 3 -h data/raw 2>/dev/null || find data/raw -maxdepth 3 -type d | head -50
+tree -L 5 -h data/raw 2>/dev/null || find data/raw -maxdepth 5 -type d | head -100
 
 echo ""
 echo "=========================================="
 echo "Sample files in each subdirectory"
 echo "=========================================="
-find data/raw -maxdepth 3 -type f | head -30
+find data/raw -maxdepth 5 -type f | head -50
 
 echo ""
 echo "=========================================="
