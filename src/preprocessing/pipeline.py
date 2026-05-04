@@ -237,8 +237,7 @@ def run_pipeline(data_dir: Path, out_dir: Path, config: dict | None = None):
         ictal = labels.sum()
         print(f"  {len(labels)} windows total | {ictal} ictal | {len(labels) - ictal} interictal")
 
-        np.save(out_dir / f"windows_{sid}.npy", windows)
-        np.save(out_dir / f"labels_{sid}.npy", labels)
+        np.savez_compressed(out_dir / f"{sid}.npz", windows=windows, labels=labels)
 
     print(f"\nPreprocessed data saved to {out_dir}")
 

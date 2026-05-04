@@ -69,7 +69,7 @@ echo ""
 
 time python -u src/preprocessing/pipeline.py \
     --data_dir "$TEST_DATA_DIR" \
-    --out_dir data/processed_test
+    --out_dir /project2/bienkows_1550/ee541_proj/processed_test
 
 EXIT_CODE=$?
 
@@ -82,7 +82,7 @@ echo "End time: $(date)"
 echo "=========================================="
 echo ""
 echo "To scale up: multiply time by 24/5 = 4.8x"
-echo "Output saved to: data/processed_test/"
+echo "Output saved to: /project2/bienkows_1550/ee541_proj/processed_test/"
 echo ""
 
 exit $EXIT_CODE

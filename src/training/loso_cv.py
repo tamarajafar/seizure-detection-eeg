@@ -107,9 +107,8 @@ def load_subject_arrays(processed_dir: Path, subject_id: str) -> tuple[np.ndarra
     windows : np.ndarray, shape (n_windows, n_channels, window_samples)
     labels : np.ndarray, shape (n_windows,)
     """
-    windows = np.load(processed_dir / f"windows_{subject_id}.npy")
-    labels = np.load(processed_dir / f"labels_{subject_id}.npy")
-    return windows, labels
+    data = np.load(processed_dir / f"{subject_id}.npz")
+    return data["windows"], data["labels"]
 
 
 def loso_folds(processed_dir: Path, val_fraction: float = 0.1, seed: int = 42):

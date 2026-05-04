@@ -35,8 +35,8 @@ echo "Running preprocessing pipeline..."
 echo ""
 
 time python -u src/preprocessing/pipeline.py \
-    --data_dir data/raw \
-    --out_dir data/processed
+    --data_dir data/raw/physionet.org/files/chbmit/1.0.0 \
+    --out_dir /project2/bienkows_1550/ee541_proj/processed
 
 EXIT_CODE=$?
 
