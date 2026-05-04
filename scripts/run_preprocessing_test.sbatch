@@ -21,10 +21,7 @@ echo "=========================================="
 # Create output directory if it doesn't exist
 mkdir -p /project2/bienkows_1550/ee541_proj
 
-# Get repo root (parent of scripts directory)
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../" && pwd)"
-cd "$REPO_ROOT"
-
+cd $SLURM_SUBMIT_DIR
 echo "Working directory: $(pwd)"
 
 # Create a test data directory with symbolic links to just chb01-05
