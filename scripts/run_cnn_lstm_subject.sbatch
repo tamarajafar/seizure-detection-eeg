@@ -4,10 +4,10 @@
 #SBATCH --partition=gpu
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=4
+#SBATCH --cpus-per-task=1
 #SBATCH --gpus-per-task=a40:1
-#SBATCH --mem=64G
-#SBATCH --time=24:00:00
+#SBATCH --mem=32G
+#SBATCH --time=2:00:00
 #SBATCH --job-name=cnn-subject
 #SBATCH --output=/project2/bienkows_1550/ee541_proj/cnn_subject_%j.out
 #SBATCH --error=/project2/bienkows_1550/ee541_proj/cnn_subject_%j.err
