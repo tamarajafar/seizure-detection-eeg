@@ -36,7 +36,7 @@ echo ""
 time python -u src/preprocessing/pipeline.py \
     --data_dir data/raw/physionet.org/files/chbmit/1.0.0 \
     --out_dir /project2/bienkows_1550/ee541_proj/processed \
-    --subjects chb11 chb12 chb13 chb14 chb15 chb16 chb17 chb18 chb19
+    --subjects chb20 chb21 chb22 chb23 chb24
 
 EXIT_CODE=$?
 
