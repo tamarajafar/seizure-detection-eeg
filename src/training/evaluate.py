@@ -23,7 +23,7 @@ from src.models.cnn_lstm import CNNLSTM
 from src.models.dann import DANN
 from src.models.logistic_baseline import build_logistic_pipeline, extract_features_batch
 from src.preprocessing.pipeline import compute_normalization_stats, apply_normalization
-from src.training.loso_cv import loso_folds, load_subject_arrays
+from src.training.loso_cv import load_subject_arrays
 from src.training.train import train_cnn_lstm, train_dann, predict_proba
 from src.utils.metrics import compute_metrics, aggregate_metrics, print_fold_summary
 
@@ -157,6 +157,28 @@ def evaluate_cnn_lstm_subject_specific(processed_dir: Path, config: dict, result
     _save_results(fold_metrics, subject_ids, results_dir, "cnn_lstm_subject_specific")
 
 
+def _streaming_norm_stats(processed_dir: Path, subject_ids: list):
+    """Compute per-channel mean/std across subjects without loading all at once."""
+    n_channels = 23
+    total_sum = np.zeros(n_channels)
+    total_sq_sum = np.zeros(n_channels)
+    total_count = 0
+
+    for sid in subject_ids:
+        w, _ = load_subject_arrays(processed_dir, sid)
+        # w shape: (n_windows, n_channels, window_samples)
+        n_samples = w.shape[0] * w.shape[2]
+        total_sum += w.sum(axis=(0, 2))
+        total_sq_sum += (w ** 2).sum(axis=(0, 2))
+        total_count += n_samples
+        del w
+
+    mean = total_sum / total_count
+    std = np.sqrt(total_sq_sum / total_count - mean ** 2)
+    std[std < 1e-8] = 1.0
+    return mean.astype(np.float32), std.astype(np.float32)
+
+
 def evaluate_cnn_lstm_cross_subject(processed_dir: Path, config: dict, results_dir: Path):
     """Architecture 3: cross-subject LOSO with CNN-LSTM."""
     print("\n=== Architecture 3 (cross-subject) ===\n")
@@ -167,28 +189,58 @@ def evaluate_cnn_lstm_cross_subject(processed_dir: Path, config: dict, results_d
 
     subject_files = sorted(processed_dir.glob("chb*.npz"))
     subject_ids = [f.stem for f in subject_files]
+    seed = config.get("seed", 42)
 
-    for fold in loso_folds(processed_dir, seed=config.get("seed", 42)):
-        sid = fold["test_subject"]
-        print(f"Fold: held-out = {sid}")
+    for test_idx, test_sid in enumerate(subject_ids):
+        print(f"Fold: held-out = {test_sid}")
 
-        train_w, train_l = fold["train_windows"], fold["train_labels"]
-        val_w, val_l = fold["val_windows"], fold["val_labels"]
+        train_sids = [s for s in subject_ids if s != test_sid]
 
-        # Normalize using training set statistics only
-        mean, std = compute_normalization_stats(train_w)
-        train_w = apply_normalization(train_w, mean, std)
-        val_w = apply_normalization(val_w, mean, std)
-        test_w_norm = apply_normalization(fold["test_windows"], mean, std)
+        # Validation split: hold out ~10% of training subjects
+        rng = np.random.default_rng(seed + test_idx)
+        n_val = max(1, int(len(train_sids) * 0.1))
+        val_sids = list(rng.choice(train_sids, size=n_val, replace=False))
+        actual_train_sids = [s for s in train_sids if s not in val_sids]
+
+        # Compute normalization from training subjects (streaming, no full load)
+        print("  Computing normalization stats...")
+        mean, std = _streaming_norm_stats(processed_dir, actual_train_sids)
+
+        # Load and normalize training data
+        print(f"  Loading training data ({len(actual_train_sids)} subjects)...")
+        train_ws, train_ls = [], []
+        for sid in actual_train_sids:
+            w, l = load_subject_arrays(processed_dir, sid)
+            train_ws.append(apply_normalization(w, mean, std))
+            train_ls.append(l)
+            del w
+        train_w = np.concatenate(train_ws); del train_ws
+        train_l = np.concatenate(train_ls); del train_ls
+
+        # Load and normalize validation data
+        val_ws, val_ls = [], []
+        for sid in val_sids:
+            w, l = load_subject_arrays(processed_dir, sid)
+            val_ws.append(apply_normalization(w, mean, std))
+            val_ls.append(l)
+            del w
+        val_w = np.concatenate(val_ws); del val_ws
+        val_l = np.concatenate(val_ls); del val_ls
+
+        # Load and normalize test data
+        test_w, test_l = load_subject_arrays(processed_dir, test_sid)
+        test_w = apply_normalization(test_w, mean, std)
 
         model = _build_cnn_lstm(config)
-        torch.manual_seed(config.get("seed", 42))
+        torch.manual_seed(seed)
         model = train_cnn_lstm(model, train_w, train_l, val_w, val_l, config, device)
+        del train_w, train_l, val_w, val_l
 
-        y_prob = predict_proba(model, test_w_norm, device)
-        metrics = compute_metrics(fold["test_labels"], y_prob)
+        y_prob = predict_proba(model, test_w, device)
+        metrics = compute_metrics(test_l, y_prob)
         fold_metrics.append(metrics)
         print(f"  AUROC={metrics['auroc']:.3f}  Sens={metrics['sensitivity']:.3f}  n_ictal={metrics['n_ictal']}")
+        del test_w, test_l, model
 
     print("\n--- LOSO Summary: Architecture 3 (cross-subject) ---")
     print_fold_summary(fold_metrics, subject_ids)
@@ -204,18 +256,54 @@ def evaluate_dann(processed_dir: Path, config: dict, results_dir: Path):
     device = get_device()
     print(f"Device: {device}")
     fold_metrics = []
-    subject_ids_out = []
 
-    for fold in loso_folds(processed_dir, seed=config.get("seed", 42)):
-        sid = fold["test_subject"]
-        subject_ids_out.append(sid)
-        n_train_subjects = fold["n_train_subjects"]
-        print(f"Fold: held-out = {sid}  |  n_train_subjects = {n_train_subjects}")
+    subject_files = sorted(processed_dir.glob("chb*.npz"))
+    subject_ids = [f.stem for f in subject_files]
+    seed = config.get("seed", 42)
 
-        mean, std = compute_normalization_stats(fold["train_windows"])
-        train_w = apply_normalization(fold["train_windows"], mean, std)
-        val_w = apply_normalization(fold["val_windows"], mean, std)
-        test_w = apply_normalization(fold["test_windows"], mean, std)
+    for test_idx, test_sid in enumerate(subject_ids):
+        train_sids = [s for s in subject_ids if s != test_sid]
+
+        # Validation split
+        rng = np.random.default_rng(seed + test_idx)
+        n_val = max(1, int(len(train_sids) * 0.1))
+        val_sids = list(rng.choice(train_sids, size=n_val, replace=False))
+        actual_train_sids = [s for s in train_sids if s not in val_sids]
+
+        n_train_subjects = len(actual_train_sids)
+        print(f"Fold: held-out = {test_sid}  |  n_train_subjects = {n_train_subjects}")
+
+        # Subject ID mapping for domain classifier
+        id_map = {s: i for i, s in enumerate(actual_train_sids)}
+
+        # Compute normalization from training subjects
+        mean, std = _streaming_norm_stats(processed_dir, actual_train_sids)
+
+        # Load training data with subject IDs
+        train_ws, train_ls, train_ss = [], [], []
+        for sid in actual_train_sids:
+            w, l = load_subject_arrays(processed_dir, sid)
+            train_ws.append(apply_normalization(w, mean, std))
+            train_ls.append(l)
+            train_ss.append(np.full(len(l), id_map[sid], dtype=np.int64))
+            del w
+        train_w = np.concatenate(train_ws); del train_ws
+        train_l = np.concatenate(train_ls); del train_ls
+        train_s = np.concatenate(train_ss); del train_ss
+
+        # Load validation data
+        val_ws, val_ls = [], []
+        for sid in val_sids:
+            w, l = load_subject_arrays(processed_dir, sid)
+            val_ws.append(apply_normalization(w, mean, std))
+            val_ls.append(l)
+            del w
+        val_w = np.concatenate(val_ws); del val_ws
+        val_l = np.concatenate(val_ls); del val_ls
+
+        # Load test data
+        test_w, test_l = load_subject_arrays(processed_dir, test_sid)
+        test_w = apply_normalization(test_w, mean, std)
 
         model = DANN(
             n_channels=config.get("n_channels", 23),
@@ -227,22 +315,24 @@ def evaluate_dann(processed_dir: Path, config: dict, results_dir: Path):
             lambda_max=config.get("dann_lambda_max", 1.0),
         )
 
-        torch.manual_seed(config.get("seed", 42))
+        torch.manual_seed(seed)
         model = train_dann(
             model,
-            train_w, fold["train_labels"], fold["train_subject_ids"],
-            val_w, fold["val_labels"],
+            train_w, train_l, train_s,
+            val_w, val_l,
             config, device,
         )
+        del train_w, train_l, train_s, val_w, val_l
 
         y_prob = predict_proba(model, test_w, device, is_dann=True)
-        metrics = compute_metrics(fold["test_labels"], y_prob)
+        metrics = compute_metrics(test_l, y_prob)
         fold_metrics.append(metrics)
         print(f"  AUROC={metrics['auroc']:.3f}  Sens={metrics['sensitivity']:.3f}  n_ictal={metrics['n_ictal']}")
+        del test_w, test_l, model
 
     print("\n--- LOSO Summary: DANN ---")
-    print_fold_summary(fold_metrics, subject_ids_out)
-    _save_results(fold_metrics, subject_ids_out, results_dir, "dann")
+    print_fold_summary(fold_metrics, subject_ids)
+    _save_results(fold_metrics, subject_ids, results_dir, "dann")
 
 
 # ---------------------------------------------------------------------------
