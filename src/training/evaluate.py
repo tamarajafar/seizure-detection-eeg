@@ -124,13 +124,22 @@ def evaluate_cnn_lstm_subject_specific(processed_dir: Path, config: dict, result
     subject_files = sorted(processed_dir.glob("chb*.npz"))
     subject_ids = [f.stem for f in subject_files]
 
+    max_windows = config.get("max_windows_per_subject", 100_000)
+
     for sid in subject_ids:
         print(f"Fold: subject = {sid}")
         windows, labels = load_subject_arrays(processed_dir, sid)
 
-        # 90/10 train/val split
+        # Cap windows to limit memory (chb04 has ~350k windows)
         rng = np.random.default_rng(config.get("seed", 42))
         n = len(labels)
+        if n > max_windows:
+            print(f"  Subsampling {n} -> {max_windows} windows")
+            idx = rng.permutation(n)[:max_windows]
+            windows, labels = windows[idx], labels[idx]
+            n = max_windows
+
+        # 90/10 train/val split
         idx = rng.permutation(n)
         split = int(0.9 * n)
         train_w, train_l = windows[idx[:split]], labels[idx[:split]]
