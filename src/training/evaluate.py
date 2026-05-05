@@ -100,37 +100,80 @@ def evaluate_logistic(processed_dir: Path, config: dict, results_dir: Path):
 # Architecture 2 and 3: CNN-LSTM
 # ---------------------------------------------------------------------------
 
-def evaluate_cnn_lstm(processed_dir: Path, config: dict, results_dir: Path, subject_specific: bool = False):
-    arch_label = "Architecture 2 (subject-specific)" if subject_specific else "Architecture 3 (cross-subject)"
-    tag = "cnn_lstm_subject_specific" if subject_specific else "cnn_lstm_cross_subject"
-    print(f"\n=== {arch_label} ===\n")
+def _build_cnn_lstm(config):
+    return CNNLSTM(
+        n_channels=config.get("n_channels", 23),
+        window_samples=config.get("window_samples", 1024),
+        sfreq=config.get("sample_rate", 256),
+        eegnet_F1=config.get("eegnet_f1", 8),
+        eegnet_D=config.get("eegnet_d", 2),
+        lstm_hidden=config.get("lstm_hidden", 128),
+        lstm_layers=config.get("lstm_layers", 2),
+        lstm_bidirectional=config.get("lstm_bidirectional", True),
+    )
+
+
+def evaluate_cnn_lstm_subject_specific(processed_dir: Path, config: dict, results_dir: Path):
+    """Architecture 2: train and test on same subject with 90/10 split."""
+    print("\n=== Architecture 2 (subject-specific) ===\n")
 
     device = get_device()
     print(f"Device: {device}")
     fold_metrics = []
-    subject_ids_out = []
 
     subject_files = sorted(processed_dir.glob("chb*.npz"))
-    all_subject_ids = [f.stem for f in subject_files]
+    subject_ids = [f.stem for f in subject_files]
+
+    for sid in subject_ids:
+        print(f"Fold: subject = {sid}")
+        windows, labels = load_subject_arrays(processed_dir, sid)
+
+        # 90/10 train/val split
+        rng = np.random.default_rng(config.get("seed", 42))
+        n = len(labels)
+        idx = rng.permutation(n)
+        split = int(0.9 * n)
+        train_w, train_l = windows[idx[:split]], labels[idx[:split]]
+        val_w, val_l = windows[idx[split:]], labels[idx[split:]]
+
+        # Normalize
+        mean, std = compute_normalization_stats(train_w)
+        train_w = apply_normalization(train_w, mean, std)
+        val_w = apply_normalization(val_w, mean, std)
+
+        model = _build_cnn_lstm(config)
+        torch.manual_seed(config.get("seed", 42))
+        model = train_cnn_lstm(model, train_w, train_l, val_w, val_l, config, device)
+
+        y_prob = predict_proba(model, val_w, device)
+        metrics = compute_metrics(val_l, y_prob)
+        fold_metrics.append(metrics)
+        print(f"  AUROC={metrics['auroc']:.3f}  Sens={metrics['sensitivity']:.3f}  n_ictal={metrics['n_ictal']}")
+
+        del windows, train_w, val_w  # free memory before next subject
+
+    print("\n--- LOSO Summary: Architecture 2 (subject-specific) ---")
+    print_fold_summary(fold_metrics, subject_ids)
+    _save_results(fold_metrics, subject_ids, results_dir, "cnn_lstm_subject_specific")
+
+
+def evaluate_cnn_lstm_cross_subject(processed_dir: Path, config: dict, results_dir: Path):
+    """Architecture 3: cross-subject LOSO with CNN-LSTM."""
+    print("\n=== Architecture 3 (cross-subject) ===\n")
+
+    device = get_device()
+    print(f"Device: {device}")
+    fold_metrics = []
+
+    subject_files = sorted(processed_dir.glob("chb*.npz"))
+    subject_ids = [f.stem for f in subject_files]
 
     for fold in loso_folds(processed_dir, seed=config.get("seed", 42)):
         sid = fold["test_subject"]
-        subject_ids_out.append(sid)
         print(f"Fold: held-out = {sid}")
 
-        if subject_specific:
-            # Architecture 2: train on test subject's own data using a 90/10 split
-            test_w, test_l = load_subject_arrays(processed_dir, sid)
-            rng = np.random.default_rng(config.get("seed", 42))
-            n = len(test_l)
-            idx = rng.permutation(n)
-            split = int(0.9 * n)
-            train_w, train_l = test_w[idx[:split]], test_l[idx[:split]]
-            val_w, val_l = test_w[idx[split:]], test_l[idx[split:]]
-        else:
-            # Architecture 3: naive cross-subject
-            train_w, train_l = fold["train_windows"], fold["train_labels"]
-            val_w, val_l = fold["val_windows"], fold["val_labels"]
+        train_w, train_l = fold["train_windows"], fold["train_labels"]
+        val_w, val_l = fold["val_windows"], fold["val_labels"]
 
         # Normalize using training set statistics only
         mean, std = compute_normalization_stats(train_w)
@@ -138,17 +181,7 @@ def evaluate_cnn_lstm(processed_dir: Path, config: dict, results_dir: Path, subj
         val_w = apply_normalization(val_w, mean, std)
         test_w_norm = apply_normalization(fold["test_windows"], mean, std)
 
-        model = CNNLSTM(
-            n_channels=config.get("n_channels", 23),
-            window_samples=config.get("window_samples", 1024),
-            sfreq=config.get("sample_rate", 256),
-            eegnet_F1=config.get("eegnet_f1", 8),
-            eegnet_D=config.get("eegnet_d", 2),
-            lstm_hidden=config.get("lstm_hidden", 128),
-            lstm_layers=config.get("lstm_layers", 2),
-            lstm_bidirectional=config.get("lstm_bidirectional", True),
-        )
-
+        model = _build_cnn_lstm(config)
         torch.manual_seed(config.get("seed", 42))
         model = train_cnn_lstm(model, train_w, train_l, val_w, val_l, config, device)
 
@@ -157,9 +190,9 @@ def evaluate_cnn_lstm(processed_dir: Path, config: dict, results_dir: Path, subj
         fold_metrics.append(metrics)
         print(f"  AUROC={metrics['auroc']:.3f}  Sens={metrics['sensitivity']:.3f}  n_ictal={metrics['n_ictal']}")
 
-    print(f"\n--- LOSO Summary: {arch_label} ---")
-    print_fold_summary(fold_metrics, subject_ids_out)
-    _save_results(fold_metrics, subject_ids_out, results_dir, tag)
+    print("\n--- LOSO Summary: Architecture 3 (cross-subject) ---")
+    print_fold_summary(fold_metrics, subject_ids)
+    _save_results(fold_metrics, subject_ids, results_dir, "cnn_lstm_cross_subject")
 
 
 # ---------------------------------------------------------------------------
@@ -251,7 +284,10 @@ if __name__ == "__main__":
     if args.arch == "logistic":
         evaluate_logistic(args.processed_dir, config, args.results_dir)
     elif args.arch == "cnn_lstm":
-        evaluate_cnn_lstm(args.processed_dir, config, args.results_dir, subject_specific=args.subject_specific)
+        if args.subject_specific:
+            evaluate_cnn_lstm_subject_specific(args.processed_dir, config, args.results_dir)
+        else:
+            evaluate_cnn_lstm_cross_subject(args.processed_dir, config, args.results_dir)
     elif args.arch == "dann":
         evaluate_dann(args.processed_dir, config, args.results_dir)
 
