@@ -93,7 +93,9 @@ def make_weighted_sampler(labels: np.ndarray, interictal_to_ictal_ratio: int = 1
 # LOSO fold generator
 # ---------------------------------------------------------------------------
 
-def load_subject_arrays(processed_dir: Path, subject_id: str) -> tuple[np.ndarray, np.ndarray]:
+def load_subject_arrays(processed_dir: Path, subject_id: str,
+                        max_windows: int | None = None, seed: int = 42
+                        ) -> tuple[np.ndarray, np.ndarray]:
     """
     Load preprocessed windows and labels for one subject from disk.
 
@@ -101,6 +103,10 @@ def load_subject_arrays(processed_dir: Path, subject_id: str) -> tuple[np.ndarra
     ----------
     processed_dir : Path
     subject_id : str, e.g. "chb01"
+    max_windows : int, optional
+        If set, randomly subsample to this many windows before fully loading.
+    seed : int
+        Random seed for subsampling.
 
     Returns
     -------
@@ -108,7 +114,17 @@ def load_subject_arrays(processed_dir: Path, subject_id: str) -> tuple[np.ndarra
     labels : np.ndarray, shape (n_windows,)
     """
     data = np.load(processed_dir / f"{subject_id}.npz")
-    return data["windows"], data["labels"]
+    labels = data["labels"]
+    n = len(labels)
+
+    # For large subjects (chb04), load only a random subset to avoid OOM.
+    # NpzFile is lazy: indexing with an array triggers partial decompression.
+    if max_windows and n > max_windows:
+        rng = np.random.default_rng(seed)
+        idx = np.sort(rng.choice(n, size=max_windows, replace=False))
+        return data["windows"][idx], labels[idx]
+
+    return data["windows"], labels
 
 
 def loso_folds(processed_dir: Path, val_fraction: float = 0.1, seed: int = 42):

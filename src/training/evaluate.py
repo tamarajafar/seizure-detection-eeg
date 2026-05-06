@@ -124,22 +124,18 @@ def evaluate_cnn_lstm_subject_specific(processed_dir: Path, config: dict, result
     subject_files = sorted(processed_dir.glob("chb*.npz"))
     subject_ids = [f.stem for f in subject_files]
 
-    max_windows = config.get("max_windows_per_subject", 100_000)
+    max_windows = config.get("max_windows_per_subject", 25_000)
+    seed = config.get("seed", 42)
 
     for sid in subject_ids:
         print(f"Fold: subject = {sid}")
-        windows, labels = load_subject_arrays(processed_dir, sid)
-
-        # Cap windows to limit memory (chb04 has ~350k windows)
-        rng = np.random.default_rng(config.get("seed", 42))
-        n = len(labels)
-        if n > max_windows:
-            print(f"  Subsampling {n} -> {max_windows} windows")
-            idx = rng.permutation(n)[:max_windows]
-            windows, labels = windows[idx], labels[idx]
-            n = max_windows
+        windows, labels = load_subject_arrays(processed_dir, sid,
+                                              max_windows=max_windows, seed=seed)
+        print(f"  {len(labels)} windows loaded")
 
         # 90/10 train/val split
+        rng = np.random.default_rng(seed)
+        n = len(labels)
         idx = rng.permutation(n)
         split = int(0.9 * n)
         train_w, train_l = windows[idx[:split]], labels[idx[:split]]
@@ -166,13 +162,9 @@ def evaluate_cnn_lstm_subject_specific(processed_dir: Path, config: dict, result
     _save_results(fold_metrics, subject_ids, results_dir, "cnn_lstm_subject_specific")
 
 
-def _load_subject_capped(processed_dir: Path, sid: str, max_windows: int, rng):
-    """Load subject arrays, subsampling if over max_windows."""
-    w, l = load_subject_arrays(processed_dir, sid)
-    if len(l) > max_windows:
-        idx = rng.permutation(len(l))[:max_windows]
-        w, l = w[idx], l[idx]
-    return w, l
+def _load_subject_capped(processed_dir: Path, sid: str, max_windows: int, seed: int = 42):
+    """Load subject arrays, subsampling at load time if over max_windows."""
+    return load_subject_arrays(processed_dir, sid, max_windows=max_windows, seed=seed)
 
 
 def _streaming_norm_stats(processed_dir: Path, subject_ids: list):
@@ -225,12 +217,11 @@ def evaluate_cnn_lstm_cross_subject(processed_dir: Path, config: dict, results_d
         mean, std = _streaming_norm_stats(processed_dir, actual_train_sids)
 
         # Load and normalize training data (capped per subject)
-        max_win = config.get("max_windows_per_subject", 100_000)
-        rng_load = np.random.default_rng(seed)
+        max_win = config.get("max_windows_per_subject", 25_000)
         print(f"  Loading training data ({len(actual_train_sids)} subjects, max {max_win}/subj)...")
         train_ws, train_ls = [], []
         for sid in actual_train_sids:
-            w, l = _load_subject_capped(processed_dir, sid, max_win, rng_load)
+            w, l = _load_subject_capped(processed_dir, sid, max_win, seed)
             train_ws.append(apply_normalization(w, mean, std))
             train_ls.append(l)
             del w
@@ -240,7 +231,7 @@ def evaluate_cnn_lstm_cross_subject(processed_dir: Path, config: dict, results_d
         # Load and normalize validation data
         val_ws, val_ls = [], []
         for sid in val_sids:
-            w, l = _load_subject_capped(processed_dir, sid, max_win, rng_load)
+            w, l = _load_subject_capped(processed_dir, sid, max_win, seed)
             val_ws.append(apply_normalization(w, mean, std))
             val_ls.append(l)
             del w
@@ -248,7 +239,7 @@ def evaluate_cnn_lstm_cross_subject(processed_dir: Path, config: dict, results_d
         val_l = np.concatenate(val_ls); del val_ls
 
         # Load and normalize test data
-        test_w, test_l = _load_subject_capped(processed_dir, test_sid, max_win, rng_load)
+        test_w, test_l = _load_subject_capped(processed_dir, test_sid, max_win, seed)
         test_w = apply_normalization(test_w, mean, std)
 
         model = _build_cnn_lstm(config)
@@ -300,11 +291,10 @@ def evaluate_dann(processed_dir: Path, config: dict, results_dir: Path):
         mean, std = _streaming_norm_stats(processed_dir, actual_train_sids)
 
         # Load training data with subject IDs (capped per subject)
-        max_win = config.get("max_windows_per_subject", 100_000)
-        rng_load = np.random.default_rng(seed)
+        max_win = config.get("max_windows_per_subject", 25_000)
         train_ws, train_ls, train_ss = [], [], []
         for sid in actual_train_sids:
-            w, l = _load_subject_capped(processed_dir, sid, max_win, rng_load)
+            w, l = _load_subject_capped(processed_dir, sid, max_win, seed)
             train_ws.append(apply_normalization(w, mean, std))
             train_ls.append(l)
             train_ss.append(np.full(len(l), id_map[sid], dtype=np.int64))
@@ -316,7 +306,7 @@ def evaluate_dann(processed_dir: Path, config: dict, results_dir: Path):
         # Load validation data
         val_ws, val_ls = [], []
         for sid in val_sids:
-            w, l = _load_subject_capped(processed_dir, sid, max_win, rng_load)
+            w, l = _load_subject_capped(processed_dir, sid, max_win, seed)
             val_ws.append(apply_normalization(w, mean, std))
             val_ls.append(l)
             del w
@@ -324,7 +314,7 @@ def evaluate_dann(processed_dir: Path, config: dict, results_dir: Path):
         val_l = np.concatenate(val_ls); del val_ls
 
         # Load test data
-        test_w, test_l = _load_subject_capped(processed_dir, test_sid, max_win, rng_load)
+        test_w, test_l = _load_subject_capped(processed_dir, test_sid, max_win, seed)
         test_w = apply_normalization(test_w, mean, std)
 
         model = DANN(
