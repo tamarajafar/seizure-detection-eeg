@@ -166,6 +166,15 @@ def evaluate_cnn_lstm_subject_specific(processed_dir: Path, config: dict, result
     _save_results(fold_metrics, subject_ids, results_dir, "cnn_lstm_subject_specific")
 
 
+def _load_subject_capped(processed_dir: Path, sid: str, max_windows: int, rng):
+    """Load subject arrays, subsampling if over max_windows."""
+    w, l = load_subject_arrays(processed_dir, sid)
+    if len(l) > max_windows:
+        idx = rng.permutation(len(l))[:max_windows]
+        w, l = w[idx], l[idx]
+    return w, l
+
+
 def _streaming_norm_stats(processed_dir: Path, subject_ids: list):
     """Compute per-channel mean/std across subjects without loading all at once."""
     n_channels = 23
@@ -215,11 +224,13 @@ def evaluate_cnn_lstm_cross_subject(processed_dir: Path, config: dict, results_d
         print("  Computing normalization stats...")
         mean, std = _streaming_norm_stats(processed_dir, actual_train_sids)
 
-        # Load and normalize training data
-        print(f"  Loading training data ({len(actual_train_sids)} subjects)...")
+        # Load and normalize training data (capped per subject)
+        max_win = config.get("max_windows_per_subject", 100_000)
+        rng_load = np.random.default_rng(seed)
+        print(f"  Loading training data ({len(actual_train_sids)} subjects, max {max_win}/subj)...")
         train_ws, train_ls = [], []
         for sid in actual_train_sids:
-            w, l = load_subject_arrays(processed_dir, sid)
+            w, l = _load_subject_capped(processed_dir, sid, max_win, rng_load)
             train_ws.append(apply_normalization(w, mean, std))
             train_ls.append(l)
             del w
@@ -229,7 +240,7 @@ def evaluate_cnn_lstm_cross_subject(processed_dir: Path, config: dict, results_d
         # Load and normalize validation data
         val_ws, val_ls = [], []
         for sid in val_sids:
-            w, l = load_subject_arrays(processed_dir, sid)
+            w, l = _load_subject_capped(processed_dir, sid, max_win, rng_load)
             val_ws.append(apply_normalization(w, mean, std))
             val_ls.append(l)
             del w
@@ -237,7 +248,7 @@ def evaluate_cnn_lstm_cross_subject(processed_dir: Path, config: dict, results_d
         val_l = np.concatenate(val_ls); del val_ls
 
         # Load and normalize test data
-        test_w, test_l = load_subject_arrays(processed_dir, test_sid)
+        test_w, test_l = _load_subject_capped(processed_dir, test_sid, max_win, rng_load)
         test_w = apply_normalization(test_w, mean, std)
 
         model = _build_cnn_lstm(config)
@@ -288,10 +299,12 @@ def evaluate_dann(processed_dir: Path, config: dict, results_dir: Path):
         # Compute normalization from training subjects
         mean, std = _streaming_norm_stats(processed_dir, actual_train_sids)
 
-        # Load training data with subject IDs
+        # Load training data with subject IDs (capped per subject)
+        max_win = config.get("max_windows_per_subject", 100_000)
+        rng_load = np.random.default_rng(seed)
         train_ws, train_ls, train_ss = [], [], []
         for sid in actual_train_sids:
-            w, l = load_subject_arrays(processed_dir, sid)
+            w, l = _load_subject_capped(processed_dir, sid, max_win, rng_load)
             train_ws.append(apply_normalization(w, mean, std))
             train_ls.append(l)
             train_ss.append(np.full(len(l), id_map[sid], dtype=np.int64))
@@ -303,7 +316,7 @@ def evaluate_dann(processed_dir: Path, config: dict, results_dir: Path):
         # Load validation data
         val_ws, val_ls = [], []
         for sid in val_sids:
-            w, l = load_subject_arrays(processed_dir, sid)
+            w, l = _load_subject_capped(processed_dir, sid, max_win, rng_load)
             val_ws.append(apply_normalization(w, mean, std))
             val_ls.append(l)
             del w
@@ -311,7 +324,7 @@ def evaluate_dann(processed_dir: Path, config: dict, results_dir: Path):
         val_l = np.concatenate(val_ls); del val_ls
 
         # Load test data
-        test_w, test_l = load_subject_arrays(processed_dir, test_sid)
+        test_w, test_l = _load_subject_capped(processed_dir, test_sid, max_win, rng_load)
         test_w = apply_normalization(test_w, mean, std)
 
         model = DANN(
