@@ -29,6 +29,7 @@ training:
   optimizer: adam
   early_stopping_patience: 7
   seed: 42
+  max_windows_per_subject: 25000  # cap per subject to fit in 48G with ~20 subjects
 
   # DANN-specific
   dann_lambda_max: 1.0      # adversarial strength ceiling
