@@ -239,13 +239,17 @@ def evaluate_cnn_lstm_cross_subject(processed_dir: Path, config: dict, results_d
 
     device = get_device()
     print(f"Device: {device}")
-    fold_metrics = []
 
     subject_files = sorted(processed_dir.glob("chb*.npz"))
     subject_ids = [f.stem for f in subject_files]
     seed = config.get("seed", 42)
 
+    tag = "cnn_lstm_cross_subject"
+    fold_metrics, completed_sids = _load_checkpoint(results_dir, tag)
+
     for test_idx, test_sid in enumerate(subject_ids):
+        if test_sid in completed_sids:
+            continue
         print(f"Fold: held-out = {test_sid}")
 
         train_sids = [s for s in subject_ids if s != test_sid]
@@ -282,12 +286,14 @@ def evaluate_cnn_lstm_cross_subject(processed_dir: Path, config: dict, results_d
         y_prob = predict_proba(model, test_w, device)
         metrics = compute_metrics(test_l, y_prob)
         fold_metrics.append(metrics)
+        completed_sids.append(test_sid)
         print(f"  AUROC={metrics['auroc']:.3f}  Sens={metrics['sensitivity']:.3f}  n_ictal={metrics['n_ictal']}")
         del test_w, test_l, model
+        _save_checkpoint(fold_metrics, completed_sids, results_dir, tag)
 
     print("\n--- LOSO Summary: Architecture 3 (cross-subject) ---")
     print_fold_summary(fold_metrics, subject_ids)
-    _save_results(fold_metrics, subject_ids, results_dir, "cnn_lstm_cross_subject")
+    _save_results(fold_metrics, subject_ids, results_dir, tag)
 
 
 # ---------------------------------------------------------------------------
@@ -298,13 +304,17 @@ def evaluate_dann(processed_dir: Path, config: dict, results_dir: Path):
     print("\n=== Architecture 4: DANN ===\n")
     device = get_device()
     print(f"Device: {device}")
-    fold_metrics = []
 
     subject_files = sorted(processed_dir.glob("chb*.npz"))
     subject_ids = [f.stem for f in subject_files]
     seed = config.get("seed", 42)
 
+    tag = "dann"
+    fold_metrics, completed_sids = _load_checkpoint(results_dir, tag)
+
     for test_idx, test_sid in enumerate(subject_ids):
+        if test_sid in completed_sids:
+            continue
         train_sids = [s for s in subject_ids if s != test_sid]
 
         # Validation split
@@ -355,17 +365,40 @@ def evaluate_dann(processed_dir: Path, config: dict, results_dir: Path):
         y_prob = predict_proba(model, test_w, device, is_dann=True)
         metrics = compute_metrics(test_l, y_prob)
         fold_metrics.append(metrics)
+        completed_sids.append(test_sid)
         print(f"  AUROC={metrics['auroc']:.3f}  Sens={metrics['sensitivity']:.3f}  n_ictal={metrics['n_ictal']}")
         del test_w, test_l, model
+        _save_checkpoint(fold_metrics, completed_sids, results_dir, tag)
 
     print("\n--- LOSO Summary: DANN ---")
     print_fold_summary(fold_metrics, subject_ids)
-    _save_results(fold_metrics, subject_ids, results_dir, "dann")
+    _save_results(fold_metrics, subject_ids, results_dir, tag)
 
 
 # ---------------------------------------------------------------------------
 # Results persistence
 # ---------------------------------------------------------------------------
+
+def _save_checkpoint(fold_metrics: list, completed_sids: list, results_dir: Path, tag: str):
+    """Save intermediate fold results so jobs can resume after timeout."""
+    results_dir.mkdir(parents=True, exist_ok=True)
+    ckpt = {"completed": completed_sids, "fold_metrics": fold_metrics}
+    ckpt_path = results_dir / f"{tag}_checkpoint.json"
+    with open(ckpt_path, "w") as f:
+        json.dump(ckpt, f)
+    print(f"  Checkpoint saved ({len(completed_sids)} folds done)")
+
+
+def _load_checkpoint(results_dir: Path, tag: str):
+    """Load checkpoint if it exists. Returns (fold_metrics, completed_sids) or ([], [])."""
+    ckpt_path = results_dir / f"{tag}_checkpoint.json"
+    if ckpt_path.exists():
+        with open(ckpt_path) as f:
+            ckpt = json.load(f)
+        print(f"  Resuming from checkpoint: {len(ckpt['completed'])} folds already done")
+        return ckpt["fold_metrics"], ckpt["completed"]
+    return [], []
+
 
 def _save_results(fold_metrics: list, subject_ids: list, results_dir: Path, tag: str):
     results_dir.mkdir(parents=True, exist_ok=True)
