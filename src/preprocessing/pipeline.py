@@ -199,7 +199,7 @@ def process_subject(
 
 
 def run_pipeline(data_dir: Path, out_dir: Path, config: dict | None = None,
-                 subjects: list[str] | None = None):
+                 subjects: list[str] | None = None, max_windows: int | None = None):
     """
     Preprocess CHB-MIT subjects and save segmented arrays to disk.
 
@@ -239,6 +239,12 @@ def run_pipeline(data_dir: Path, out_dir: Path, config: dict | None = None,
         ictal = labels.sum()
         print(f"  {len(labels)} windows total | {ictal} ictal | {len(labels) - ictal} interictal")
 
+        if max_windows and len(labels) > max_windows:
+            rng = np.random.default_rng(42)
+            idx = rng.permutation(len(labels))[:max_windows]
+            windows, labels = windows[idx], labels[idx]
+            print(f"  Capped to {max_windows} windows")
+
         np.savez_compressed(out_dir / f"{sid}.npz", windows=windows, labels=labels)
 
     print(f"\nPreprocessed data saved to {out_dir}")
@@ -254,6 +260,9 @@ if __name__ == "__main__":
     parser.add_argument("--out_dir", type=Path, default=Path("data/processed"))
     parser.add_argument("--subjects", nargs="+", default=None,
                         help="Process only these subjects (e.g. chb01 chb02). Default: all.")
+    parser.add_argument("--max_windows", type=int, default=None,
+                        help="Cap windows per subject (random subsample). Default: no cap.")
     args = parser.parse_args()
 
-    run_pipeline(args.data_dir, args.out_dir, subjects=args.subjects)
+    run_pipeline(args.data_dir, args.out_dir, subjects=args.subjects,
+                 max_windows=args.max_windows)
