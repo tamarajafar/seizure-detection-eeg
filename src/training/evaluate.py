@@ -170,6 +170,42 @@ def _compute_per_subject_cap(n_train_subjects: int, config: dict) -> int:
     return min(config.get("max_windows_per_subject", 25_000), budget_cap)
 
 
+def _load_and_concat(processed_dir: Path, subject_ids: list, max_win: int,
+                     seed: int, mean: np.ndarray, std: np.ndarray,
+                     include_subject_ids: bool = False):
+    """Load subjects into a pre-allocated array to avoid 2x memory from concatenation."""
+    # First pass: count total windows
+    sizes = []
+    for sid in subject_ids:
+        data = np.load(processed_dir / f"{sid}.npz")
+        n = min(len(data["labels"]), max_win)
+        sizes.append(n)
+        data.close()
+    total = sum(sizes)
+
+    # Pre-allocate output arrays
+    train_w = np.empty((total, 23, 1024), dtype=np.float32)
+    train_l = np.empty(total, dtype=np.int8)
+    train_s = np.empty(total, dtype=np.int64) if include_subject_ids else None
+
+    # Second pass: load and fill
+    offset = 0
+    for i, sid in enumerate(subject_ids):
+        w, l = load_subject_arrays(processed_dir, sid, max_windows=max_win, seed=seed)
+        w = apply_normalization(w, mean, std)
+        n = len(l)
+        train_w[offset:offset + n] = w
+        train_l[offset:offset + n] = l
+        if train_s is not None:
+            train_s[offset:offset + n] = i
+        offset += n
+        del w, l
+
+    if include_subject_ids:
+        return train_w, train_l, train_s
+    return train_w, train_l
+
+
 def _load_subject_capped(processed_dir: Path, sid: str, max_windows: int, seed: int = 42):
     """Load subject arrays, subsampling at load time if over max_windows."""
     return load_subject_arrays(processed_dir, sid, max_windows=max_windows, seed=seed)
@@ -227,24 +263,12 @@ def evaluate_cnn_lstm_cross_subject(processed_dir: Path, config: dict, results_d
         # Dynamic per-subject cap: keep total training data under ~30 GB
         max_win = _compute_per_subject_cap(len(actual_train_sids), config)
         print(f"  Loading training data ({len(actual_train_sids)} subjects, max {max_win}/subj)...")
-        train_ws, train_ls = [], []
-        for sid in actual_train_sids:
-            w, l = _load_subject_capped(processed_dir, sid, max_win, seed)
-            train_ws.append(apply_normalization(w, mean, std))
-            train_ls.append(l)
-            del w
-        train_w = np.concatenate(train_ws); del train_ws
-        train_l = np.concatenate(train_ls); del train_ls
+        train_w, train_l = _load_and_concat(
+            processed_dir, actual_train_sids, max_win, seed, mean, std)
 
         # Load and normalize validation data
-        val_ws, val_ls = [], []
-        for sid in val_sids:
-            w, l = _load_subject_capped(processed_dir, sid, max_win, seed)
-            val_ws.append(apply_normalization(w, mean, std))
-            val_ls.append(l)
-            del w
-        val_w = np.concatenate(val_ws); del val_ws
-        val_l = np.concatenate(val_ls); del val_ls
+        val_w, val_l = _load_and_concat(
+            processed_dir, val_sids, max_win, seed, mean, std)
 
         # Load and normalize test data
         test_w, test_l = _load_subject_capped(processed_dir, test_sid, max_win, seed)
@@ -292,34 +316,18 @@ def evaluate_dann(processed_dir: Path, config: dict, results_dir: Path):
         n_train_subjects = len(actual_train_sids)
         print(f"Fold: held-out = {test_sid}  |  n_train_subjects = {n_train_subjects}")
 
-        # Subject ID mapping for domain classifier
-        id_map = {s: i for i, s in enumerate(actual_train_sids)}
-
         # Compute normalization from training subjects
         mean, std = _streaming_norm_stats(processed_dir, actual_train_sids)
 
         # Load training data with subject IDs (capped per subject)
         max_win = _compute_per_subject_cap(len(actual_train_sids), config)
-        train_ws, train_ls, train_ss = [], [], []
-        for sid in actual_train_sids:
-            w, l = _load_subject_capped(processed_dir, sid, max_win, seed)
-            train_ws.append(apply_normalization(w, mean, std))
-            train_ls.append(l)
-            train_ss.append(np.full(len(l), id_map[sid], dtype=np.int64))
-            del w
-        train_w = np.concatenate(train_ws); del train_ws
-        train_l = np.concatenate(train_ls); del train_ls
-        train_s = np.concatenate(train_ss); del train_ss
+        train_w, train_l, train_s = _load_and_concat(
+            processed_dir, actual_train_sids, max_win, seed, mean, std,
+            include_subject_ids=True)
 
         # Load validation data
-        val_ws, val_ls = [], []
-        for sid in val_sids:
-            w, l = _load_subject_capped(processed_dir, sid, max_win, seed)
-            val_ws.append(apply_normalization(w, mean, std))
-            val_ls.append(l)
-            del w
-        val_w = np.concatenate(val_ws); del val_ws
-        val_l = np.concatenate(val_ls); del val_ls
+        val_w, val_l = _load_and_concat(
+            processed_dir, val_sids, max_win, seed, mean, std)
 
         # Load test data
         test_w, test_l = _load_subject_capped(processed_dir, test_sid, max_win, seed)
