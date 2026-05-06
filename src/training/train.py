@@ -67,14 +67,14 @@ def train_cnn_lstm(
         train_dataset,
         batch_size=config.get("batch_size", 64),
         sampler=sampler,
-        num_workers=4,
+        num_workers=0,
         pin_memory=True,
     )
     val_loader = DataLoader(
         val_dataset,
         batch_size=256,
         shuffle=False,
-        num_workers=4,
+        num_workers=0,
         pin_memory=True,
     )
 
@@ -163,10 +163,10 @@ def train_dann(
         train_dataset,
         batch_size=config.get("batch_size", 64),
         sampler=sampler,
-        num_workers=4,
+        num_workers=0,
         pin_memory=True,
     )
-    val_loader = DataLoader(val_dataset, batch_size=256, shuffle=False, num_workers=4, pin_memory=True)
+    val_loader = DataLoader(val_dataset, batch_size=256, shuffle=False, num_workers=0, pin_memory=True)
 
     optimizer = torch.optim.Adam(
         model.parameters(),

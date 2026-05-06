@@ -162,6 +162,14 @@ def evaluate_cnn_lstm_subject_specific(processed_dir: Path, config: dict, result
     _save_results(fold_metrics, subject_ids, results_dir, "cnn_lstm_subject_specific")
 
 
+def _compute_per_subject_cap(n_train_subjects: int, config: dict) -> int:
+    """Cap per subject so total training data fits in ~30 GB RAM."""
+    BYTES_PER_WINDOW = 23 * 1024 * 4  # ~94 KB per window (float32)
+    MEM_BUDGET = 30 * (1024 ** 3)     # 30 GB
+    budget_cap = MEM_BUDGET // (n_train_subjects * BYTES_PER_WINDOW)
+    return min(config.get("max_windows_per_subject", 25_000), budget_cap)
+
+
 def _load_subject_capped(processed_dir: Path, sid: str, max_windows: int, seed: int = 42):
     """Load subject arrays, subsampling at load time if over max_windows."""
     return load_subject_arrays(processed_dir, sid, max_windows=max_windows, seed=seed)
@@ -216,8 +224,8 @@ def evaluate_cnn_lstm_cross_subject(processed_dir: Path, config: dict, results_d
         print("  Computing normalization stats...")
         mean, std = _streaming_norm_stats(processed_dir, actual_train_sids)
 
-        # Load and normalize training data (capped per subject)
-        max_win = config.get("max_windows_per_subject", 25_000)
+        # Dynamic per-subject cap: keep total training data under ~30 GB
+        max_win = _compute_per_subject_cap(len(actual_train_sids), config)
         print(f"  Loading training data ({len(actual_train_sids)} subjects, max {max_win}/subj)...")
         train_ws, train_ls = [], []
         for sid in actual_train_sids:
@@ -291,7 +299,7 @@ def evaluate_dann(processed_dir: Path, config: dict, results_dir: Path):
         mean, std = _streaming_norm_stats(processed_dir, actual_train_sids)
 
         # Load training data with subject IDs (capped per subject)
-        max_win = config.get("max_windows_per_subject", 25_000)
+        max_win = _compute_per_subject_cap(len(actual_train_sids), config)
         train_ws, train_ls, train_ss = [], [], []
         for sid in actual_train_sids:
             w, l = _load_subject_capped(processed_dir, sid, max_win, seed)
