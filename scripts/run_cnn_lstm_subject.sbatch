@@ -7,6 +7,7 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --gpus-per-task=1
 #SBATCH --mem=16G
+#SBATCH --constraint="a40|a100|v100|l40s"
 #SBATCH --time=2:00:00
 #SBATCH --job-name=cnn-subject
 #SBATCH --output=/project2/bienkows_1550/ee541_proj/cnn_subject_%j.out
