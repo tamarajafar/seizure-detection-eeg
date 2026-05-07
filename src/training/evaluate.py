@@ -12,6 +12,7 @@ Usage:
 
 import argparse
 import json
+import joblib
 import time
 from pathlib import Path
 
@@ -93,6 +94,9 @@ def evaluate_logistic(processed_dir: Path, config: dict, results_dir: Path):
         predictions.append({"y_true": subject_labels[test_sid], "y_prob": y_prob})
         print(f"  AUROC={metrics['auroc']:.3f}  Sens={metrics['sensitivity']:.3f}  n_ictal={metrics['n_ictal']}")
 
+        # Save model for this fold
+        _save_model(results_dir, "logistic", test_sid, pipeline=pipeline)
+
     print("\n--- LOSO Summary ---")
     print_fold_summary(fold_metrics, subject_ids)
     _save_results(fold_metrics, subject_ids, results_dir, "logistic", predictions=predictions)
@@ -159,6 +163,8 @@ def evaluate_cnn_lstm_subject_specific(processed_dir: Path, config: dict, result
         predictions.append({"y_true": val_l, "y_prob": y_prob})
         print(f"  AUROC={metrics['auroc']:.3f}  Sens={metrics['sensitivity']:.3f}  n_ictal={metrics['n_ictal']}")
 
+        _save_model(results_dir, "cnn_lstm_subject_specific", sid,
+                    model=model, norm_stats={"mean": mean, "std": std})
         del windows, train_w, val_w  # free memory before next subject
 
     print("\n--- LOSO Summary: Architecture 2 (subject-specific) ---")
@@ -294,6 +300,9 @@ def evaluate_cnn_lstm_cross_subject(processed_dir: Path, config: dict, results_d
         predictions.append({"y_true": test_l, "y_prob": y_prob})
         completed_sids.append(test_sid)
         print(f"  AUROC={metrics['auroc']:.3f}  Sens={metrics['sensitivity']:.3f}  n_ictal={metrics['n_ictal']}")
+
+        _save_model(results_dir, tag, test_sid,
+                    model=model, norm_stats={"mean": mean, "std": std})
         del test_w, test_l, model
         _save_checkpoint(fold_metrics, completed_sids, results_dir, tag)
 
@@ -375,6 +384,9 @@ def evaluate_dann(processed_dir: Path, config: dict, results_dir: Path):
         predictions.append({"y_true": test_l, "y_prob": y_prob})
         completed_sids.append(test_sid)
         print(f"  AUROC={metrics['auroc']:.3f}  Sens={metrics['sensitivity']:.3f}  n_ictal={metrics['n_ictal']}")
+
+        _save_model(results_dir, tag, test_sid,
+                    model=model, norm_stats={"mean": mean, "std": std})
         del test_w, test_l, model
         _save_checkpoint(fold_metrics, completed_sids, results_dir, tag)
 
@@ -386,6 +398,24 @@ def evaluate_dann(processed_dir: Path, config: dict, results_dir: Path):
 # ---------------------------------------------------------------------------
 # Results persistence
 # ---------------------------------------------------------------------------
+
+def _save_model(results_dir: Path, tag: str, fold_id: str,
+                model=None, pipeline=None, norm_stats=None):
+    """Save a trained model for one fold so it can be reloaded for inference."""
+    model_dir = results_dir / "models" / tag
+    model_dir.mkdir(parents=True, exist_ok=True)
+
+    if model is not None:
+        # PyTorch model (CNN-LSTM or DANN)
+        save_dict = {"state_dict": model.state_dict()}
+        if norm_stats is not None:
+            save_dict["norm_mean"] = norm_stats["mean"]
+            save_dict["norm_std"] = norm_stats["std"]
+        torch.save(save_dict, model_dir / f"{fold_id}.pt")
+    elif pipeline is not None:
+        # sklearn pipeline (logistic)
+        joblib.dump(pipeline, model_dir / f"{fold_id}.joblib")
+
 
 def _save_checkpoint(fold_metrics: list, completed_sids: list, results_dir: Path, tag: str):
     """Save intermediate fold results so jobs can resume after timeout."""
