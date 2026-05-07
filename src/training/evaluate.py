@@ -54,6 +54,7 @@ def get_device() -> torch.device:
 def evaluate_logistic(processed_dir: Path, config: dict, results_dir: Path):
     print("\n=== Architecture 1: Logistic Regression Baseline ===\n")
     fold_metrics = []
+    predictions = []
 
     sfreq = config.get("sample_rate", 256)
 
@@ -89,11 +90,12 @@ def evaluate_logistic(processed_dir: Path, config: dict, results_dir: Path):
 
         metrics = compute_metrics(subject_labels[test_sid], y_prob)
         fold_metrics.append(metrics)
+        predictions.append({"y_true": subject_labels[test_sid], "y_prob": y_prob})
         print(f"  AUROC={metrics['auroc']:.3f}  Sens={metrics['sensitivity']:.3f}  n_ictal={metrics['n_ictal']}")
 
     print("\n--- LOSO Summary ---")
     print_fold_summary(fold_metrics, subject_ids)
-    _save_results(fold_metrics, subject_ids, results_dir, "logistic")
+    _save_results(fold_metrics, subject_ids, results_dir, "logistic", predictions=predictions)
 
 
 # ---------------------------------------------------------------------------
@@ -120,6 +122,7 @@ def evaluate_cnn_lstm_subject_specific(processed_dir: Path, config: dict, result
     device = get_device()
     print(f"Device: {device}")
     fold_metrics = []
+    predictions = []
 
     subject_files = sorted(processed_dir.glob("chb*.npz"))
     subject_ids = [f.stem for f in subject_files]
@@ -153,13 +156,14 @@ def evaluate_cnn_lstm_subject_specific(processed_dir: Path, config: dict, result
         y_prob = predict_proba(model, val_w, device)
         metrics = compute_metrics(val_l, y_prob)
         fold_metrics.append(metrics)
+        predictions.append({"y_true": val_l, "y_prob": y_prob})
         print(f"  AUROC={metrics['auroc']:.3f}  Sens={metrics['sensitivity']:.3f}  n_ictal={metrics['n_ictal']}")
 
         del windows, train_w, val_w  # free memory before next subject
 
     print("\n--- LOSO Summary: Architecture 2 (subject-specific) ---")
     print_fold_summary(fold_metrics, subject_ids)
-    _save_results(fold_metrics, subject_ids, results_dir, "cnn_lstm_subject_specific")
+    _save_results(fold_metrics, subject_ids, results_dir, "cnn_lstm_subject_specific", predictions=predictions)
 
 
 def _compute_per_subject_cap(n_train_subjects: int, config: dict) -> int:
@@ -246,6 +250,7 @@ def evaluate_cnn_lstm_cross_subject(processed_dir: Path, config: dict, results_d
 
     tag = "cnn_lstm_cross_subject"
     fold_metrics, completed_sids = _load_checkpoint(results_dir, tag)
+    predictions = []
 
     for test_idx, test_sid in enumerate(subject_ids):
         if test_sid in completed_sids:
@@ -286,6 +291,7 @@ def evaluate_cnn_lstm_cross_subject(processed_dir: Path, config: dict, results_d
         y_prob = predict_proba(model, test_w, device)
         metrics = compute_metrics(test_l, y_prob)
         fold_metrics.append(metrics)
+        predictions.append({"y_true": test_l, "y_prob": y_prob})
         completed_sids.append(test_sid)
         print(f"  AUROC={metrics['auroc']:.3f}  Sens={metrics['sensitivity']:.3f}  n_ictal={metrics['n_ictal']}")
         del test_w, test_l, model
@@ -293,7 +299,7 @@ def evaluate_cnn_lstm_cross_subject(processed_dir: Path, config: dict, results_d
 
     print("\n--- LOSO Summary: Architecture 3 (cross-subject) ---")
     print_fold_summary(fold_metrics, subject_ids)
-    _save_results(fold_metrics, subject_ids, results_dir, tag)
+    _save_results(fold_metrics, subject_ids, results_dir, tag, predictions=predictions)
 
 
 # ---------------------------------------------------------------------------
@@ -311,6 +317,7 @@ def evaluate_dann(processed_dir: Path, config: dict, results_dir: Path):
 
     tag = "dann"
     fold_metrics, completed_sids = _load_checkpoint(results_dir, tag)
+    predictions = []
 
     for test_idx, test_sid in enumerate(subject_ids):
         if test_sid in completed_sids:
@@ -365,6 +372,7 @@ def evaluate_dann(processed_dir: Path, config: dict, results_dir: Path):
         y_prob = predict_proba(model, test_w, device, is_dann=True)
         metrics = compute_metrics(test_l, y_prob)
         fold_metrics.append(metrics)
+        predictions.append({"y_true": test_l, "y_prob": y_prob})
         completed_sids.append(test_sid)
         print(f"  AUROC={metrics['auroc']:.3f}  Sens={metrics['sensitivity']:.3f}  n_ictal={metrics['n_ictal']}")
         del test_w, test_l, model
@@ -372,7 +380,7 @@ def evaluate_dann(processed_dir: Path, config: dict, results_dir: Path):
 
     print("\n--- LOSO Summary: DANN ---")
     print_fold_summary(fold_metrics, subject_ids)
-    _save_results(fold_metrics, subject_ids, results_dir, tag)
+    _save_results(fold_metrics, subject_ids, results_dir, tag, predictions=predictions)
 
 
 # ---------------------------------------------------------------------------
@@ -400,7 +408,8 @@ def _load_checkpoint(results_dir: Path, tag: str):
     return [], []
 
 
-def _save_results(fold_metrics: list, subject_ids: list, results_dir: Path, tag: str):
+def _save_results(fold_metrics: list, subject_ids: list, results_dir: Path, tag: str,
+                  predictions: list | None = None):
     results_dir.mkdir(parents=True, exist_ok=True)
     agg = aggregate_metrics(fold_metrics)
     output = {
@@ -411,6 +420,15 @@ def _save_results(fold_metrics: list, subject_ids: list, results_dir: Path, tag:
     with open(out_path, "w") as f:
         json.dump(output, f, indent=2)
     print(f"\nResults saved to {out_path}")
+
+    if predictions is not None:
+        pred_path = results_dir / f"{tag}_predictions.npz"
+        np.savez(
+            pred_path,
+            **{f"{sid}_y_true": p["y_true"] for sid, p in zip(subject_ids, predictions)},
+            **{f"{sid}_y_prob": p["y_prob"] for sid, p in zip(subject_ids, predictions)},
+        )
+        print(f"Predictions saved to {pred_path}")
 
 
 # ---------------------------------------------------------------------------
