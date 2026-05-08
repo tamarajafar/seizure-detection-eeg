@@ -53,7 +53,7 @@ The full dataset contains 198 annotated seizures across 24 subjects, with substa
 
 ### 3.2 Exploratory Data Analysis
 
-Preliminary inspection of band-power distributions across subjects reveals the inter-subject spectral heterogeneity that drives the cross-subject generalization problem. Subjects vary considerably in their baseline theta and alpha power, and in the spectral shift associated with ictal activity. For some subjects (e.g. chb01, chb22) ictal epochs show a pronounced broadband power increase relative to interictal baseline, which makes frequency-band features discriminative. For others (e.g. chb12, chb14) the ictal spectral signature is less separable from the interictal baseline, which is consistent with their poor performance across all architectures. The class-imbalanced nature of the data (Figure: class distribution per subject) motivated our choice of AUROC and sensitivity as primary metrics rather than accuracy.
+Preliminary inspection of band-power distributions across subjects reveals the inter-subject spectral heterogeneity that drives the cross-subject generalization problem. Subjects vary considerably in their baseline theta and alpha power, and in the spectral shift associated with ictal activity. For some subjects (e.g. chb01, chb22) ictal epochs show a pronounced broadband power increase relative to interictal baseline, which makes frequency-band features discriminative. For others (e.g. chb12, chb14) the ictal spectral signature is less separable from the interictal baseline, which is consistent with their poor performance across all architectures. The class-imbalanced nature of the data motivated our choice of AUROC and sensitivity as primary metrics rather than accuracy.
 
 ### 3.3 Preprocessing Pipeline
 
@@ -213,7 +213,7 @@ All hyperparameters were set based on literature defaults (EEGNet paper, Ganin e
 
 The logistic regression baseline achieves a mean AUROC of 0.735 +/- 0.206 across 24 LOSO folds (Table 1, Figure 1). Despite moderate discriminability at the ranking level, sensitivity is low at 0.457 +/- 0.314 and F1 is very low at 0.054 +/- 0.073 (Figure 2). The dissociation between AUROC and F1 reflects class imbalance: the logistic regression ranks ictal windows above interictal ones with moderate reliability, but at any fixed decision threshold the volume of false positives from the large interictal pool overwhelms the true positives.
 
-Performance varies substantially across subjects (Table 7, Figure 3). The model succeeds on chb01 (AUROC=0.991), chb22 (AUROC=0.967), chb17 (AUROC=0.923), and chb18 (AUROC=0.927). It fails on chb12 (AUROC=0.305), chb14 (AUROC=0.337), chb16 (AUROC=0.391), and chb06 (AUROC=0.476), all near or below chance. The standard deviation of 0.206 across folds is comparable in magnitude to the mean improvement over chance (0.235), indicating that this model generalizes to some patients but not others in a way that is not predictable from subject-level metadata available to us.
+Performance varies substantially across subjects (Table 6, Figure 3). The model succeeds on chb01 (AUROC=0.991), chb22 (AUROC=0.967), chb17 (AUROC=0.923), and chb18 (AUROC=0.927). It fails on chb12 (AUROC=0.305), chb14 (AUROC=0.337), chb16 (AUROC=0.391), and chb06 (AUROC=0.476), all near or below chance. The standard deviation of 0.206 across folds is comparable in magnitude to the mean improvement over chance (0.235), indicating that this model generalizes to some patients but not others in a way that is not predictable from subject-level metadata available to us.
 
 **Table 1.** Architecture 1 (logistic regression) aggregate LOSO-CV results.
 
@@ -247,11 +247,11 @@ The 0.975 AUROC represents the performance ceiling for this architecture under t
 
 ### 5.3 Architecture 3: Naive Cross-Subject EEGNet + BiLSTM
 
-The naive cross-subject CNN-LSTM achieves a mean AUROC of 0.808 ± 0.216 across 24 folds (Table 4, Figure 1), a 0.167-point drop from the subject-specific ceiling of 0.975. This gap is the domain shift penalty: the performance cost of applying a model trained on 22 other patients to a new patient without any adaptation. Sensitivity collapses to 0.119 ± 0.208 and F1 to 0.097 ± 0.170, reflecting severe thresholding failure -- the model ranks ictal windows above many interictal ones at the score level, but its calibrated outputs are too low to cross the 0.5 threshold for most subjects.
+The naive cross-subject CNN-LSTM achieves a mean AUROC of 0.808 ± 0.216 across 24 folds (Table 3, Figure 1), a 0.167-point drop from the subject-specific ceiling of 0.975. This gap is the domain shift penalty: the performance cost of applying a model trained on 22 other patients to a new patient without any adaptation. Sensitivity collapses to 0.119 ± 0.208 and F1 to 0.097 ± 0.170, reflecting severe thresholding failure -- the model ranks ictal windows above many interictal ones at the score level, but its calibrated outputs are too low to cross the 0.5 threshold for most subjects.
 
-Per-subject AUROC (Table 7, Figure 3) shows that several subjects transfer well: chb01 (0.999), chb02 (0.998), chb09 (0.988), chb10 (0.982), and chb11 (0.983) all remain above 0.975 despite no access to target-subject data, suggesting their seizure signatures are consistent with those of training subjects. Generalization fails sharply for chb14 (0.131), chb20 (0.448), chb12 (0.499), and chb21 (0.618). chb14 is particularly striking: it achieves AUROC 0.968 under the subject-specific model but near-chance under cross-subject transfer, indicating its seizure signature is learnable from within-subject data but is not represented in the training distribution of other patients. chb12 remains near chance (0.499) under all cross-subject approaches, confirming that its failure is driven by intrinsic signal properties rather than distribution shift alone.
+Per-subject AUROC (Table 6, Figure 3) shows that several subjects transfer well: chb01 (0.999), chb02 (0.998), chb09 (0.988), chb10 (0.982), and chb11 (0.983) all remain above 0.975 despite no access to target-subject data, suggesting their seizure signatures are consistent with those of training subjects. Generalization fails sharply for chb14 (0.131), chb20 (0.448), chb12 (0.499), and chb21 (0.618). chb14 is particularly striking: it achieves AUROC 0.968 under the subject-specific model but near-chance under cross-subject transfer, indicating its seizure signature is learnable from within-subject data but is not represented in the training distribution of other patients. chb12 remains near chance (0.499) under all cross-subject approaches, confirming that its failure is driven by intrinsic signal properties rather than distribution shift alone.
 
-**Table 4.** Architecture 3 (naive cross-subject CNN-LSTM) aggregate LOSO-CV results.
+**Table 3.** Architecture 3 (naive cross-subject CNN-LSTM) aggregate LOSO-CV results.
 
 | Metric | Mean | SD |
 |---|---|---|
@@ -263,13 +263,13 @@ Per-subject AUROC (Table 7, Figure 3) shows that several subjects transfer well:
 
 ### 5.4 Architecture 4: DANN
 
-DANN achieves a mean AUROC of 0.783 ± 0.192 across 24 folds (Table 5, Figure 1) -- 0.025 points below the naive cross-subject baseline. The adversarial training does not recover the domain shift penalty; it slightly degrades ranking performance relative to Architecture 3. More importantly, sensitivity is 0.0 ± 0.0 and F1 is 0.0 ± 0.0 across all 24 folds. DANN predicts zero ictal windows at threshold 0.5 for every subject. This is a complete threshold collapse: the model's ictal probability scores rank windows in a meaningful order (AUROC > 0.5 for 22 of 24 subjects) but the scores are uniformly suppressed below 0.5, leaving the classifier effectively non-functional at any clinical operating threshold.
+DANN achieves a mean AUROC of 0.783 ± 0.192 across 24 folds (Table 4, Figure 1) -- 0.025 points below the naive cross-subject baseline. The adversarial training does not recover the domain shift penalty; it slightly degrades ranking performance relative to Architecture 3. More importantly, sensitivity is 0.0 ± 0.0 and F1 is 0.0 ± 0.0 across all 24 folds. DANN predicts zero ictal windows at threshold 0.5 for every subject. This is a complete threshold collapse: the model's ictal probability scores rank windows in a meaningful order (AUROC > 0.5 for 22 of 24 subjects) but the scores are uniformly suppressed below 0.5, leaving the classifier effectively non-functional at any clinical operating threshold.
 
 The most likely explanation is that adversarial training interferes with the calibration of the seizure classification head. As the GRL pushes the feature extractor toward subject-invariant representations, it also reduces the magnitude of seizure-discriminative features, flattening the output distribution of the seizure head. Because the class-imbalance structure of the problem requires ictal-predicting features to be large relative to the interictal baseline, even a modest suppression of feature magnitude by the domain gradient can push all ictal scores below threshold. This is consistent with the lambda annealing schedule: early in training the seizure head learns a useful representation, but as lambda ramps toward 1.0, the adversarial pressure steadily erodes calibration without a compensating benefit from subject-invariant features.
 
 Per-subject AUROC is high for some subjects (chb10: 0.986, chb11: 0.981, chb03: 0.981, chb19: 0.975, chb09: 0.971) but near-chance for others (chb23: 0.430, chb12: 0.455, chb06: 0.556), with the same difficult subjects failing under all cross-subject approaches.
 
-**Table 5.** Architecture 4 (DANN) aggregate LOSO-CV results.
+**Table 4.** Architecture 4 (DANN) aggregate LOSO-CV results.
 
 | Metric | Mean | SD |
 |---|---|---|
@@ -281,7 +281,7 @@ Per-subject AUROC is high for some subjects (chb10: 0.986, chb11: 0.981, chb03: 
 
 ### 5.5 Comparative Summary
 
-**Table 6.** Aggregate AUROC across all four architectures.
+**Table 5.** Aggregate AUROC across all four architectures.
 
 | Architecture | AUROC Mean | AUROC SD | Sensitivity | Specificity | F1 |
 |---|---|---|---|---|---|
@@ -290,7 +290,7 @@ Per-subject AUROC is high for some subjects (chb10: 0.986, chb11: 0.981, chb03: 
 | Arch 3: CNN-LSTM (cross-subject) | 0.808 | 0.216 | 0.119 | 0.997 | 0.097 |
 | Arch 4: DANN | 0.783 | 0.192 | 0.000 | 0.998 | 0.000 |
 
-**Table 7.** Per-subject AUROC across all four architectures.
+**Table 6.** Per-subject AUROC across all four architectures.
 
 | Subject | N ictal | Arch 1 Logistic | Arch 2 CNN-LSTM SS | Arch 3 CNN-LSTM CS | Arch 4 DANN |
 |---|---|---|---|---|---|
@@ -365,7 +365,7 @@ The high variance across subjects (SD=0.206 for Architecture 1, SD=0.051 for Arc
 
 ### 6.3 Data and Architecture Interactions
 
-The class imbalance (1.5% ictal) interacts with LOSO evaluation in an important way. Subjects with few ictal windows (chb04: 8 windows total) produce unreliable per-fold metric estimates. AUROC computed from 2 positive examples has near-binary variance. This means the per-subject AUROC distribution in Table 7 conflates genuine model difficulty with estimation noise for low-seizure-burden subjects. A more robust evaluation would require minimum ictal count thresholds, but excluding subjects would bias the reported numbers toward easier cases.
+The class imbalance (1.5% ictal) interacts with LOSO evaluation in an important way. Subjects with few ictal windows (chb04: 8 windows total) produce unreliable per-fold metric estimates. AUROC computed from 2 positive examples has near-binary variance. This means the per-subject AUROC distribution in Table 6 conflates genuine model difficulty with estimation noise for low-seizure-burden subjects. A more robust evaluation would require minimum ictal count thresholds, but excluding subjects would bias the reported numbers toward easier cases.
 
 The architectural choice of non-overlapping 4-second windows imposes a temporal resolution limit. A seizure that lasts 3 seconds will produce at most one window with more than 50% ictal overlap, even if the surrounding transition period contains discriminative signal. Overlapping windows or variable-length segmentation could recover this signal at the cost of introducing correlated training examples.
 
@@ -407,7 +407,7 @@ We implemented and evaluated four seizure detection systems under leave-one-subj
 
 **What question did we answer through this project?**
 
-We answered: *how large is the domain shift penalty for EEG-based seizure detection, and can it be measured rigorously?* The comparison between Architecture 2 (subject-specific) and Architecture 3 (naive cross-subject) provides the first component of this answer -- a quantitative, per-subject measurement of how much performance is lost purely from generalizing across patients under an honest evaluation protocol. Many prior papers report cross-subject results but compare against within-subject baselines only at the group mean level, obscuring which patients drive the performance gap. Our per-subject breakdown in Table 7 reveals that some patients (chb12) are difficult for all methods, while others (chb01, chb22) are easy regardless of method. This decomposition informs whether domain adaptation is solving the right problem: if hard subjects are hard because of intrinsic signal properties rather than distribution shift, adversarial training cannot help them.
+We answered: *how large is the domain shift penalty for EEG-based seizure detection, and can it be measured rigorously?* The comparison between Architecture 2 (subject-specific) and Architecture 3 (naive cross-subject) provides the first component of this answer -- a quantitative, per-subject measurement of how much performance is lost purely from generalizing across patients under an honest evaluation protocol. Many prior papers report cross-subject results but compare against within-subject baselines only at the group mean level, obscuring which patients drive the performance gap. Our per-subject breakdown in Table 6 reveals that some patients (chb12) are difficult for all methods, while others (chb01, chb22) are easy regardless of method. This decomposition informs whether domain adaptation is solving the right problem: if hard subjects are hard because of intrinsic signal properties rather than distribution shift, adversarial training cannot help them.
 
 **Substantive extension.**
 
