@@ -1,9 +1,7 @@
 # Model Card: Cross-Subject Seizure Detection from EEG
 
-**EE 541 Final Project -- Spring 2026**
+**EE 541 Final Project Spring 2026**
 Authors: Tamara Jafar, Bayla Breningstall
-
-*This card documents all four architectures from our comparative study.*
 
 ---
 
@@ -47,8 +45,8 @@ Authors: Tamara Jafar, Bayla Breningstall
 - Ictal: ~12,000 windows (~1.5%)
 
 **Known limitations:**
-- Pediatric population only -- generalization to adult epilepsy is untested
-- Single institution (Children's Hospital Boston) -- site effects uncharacterized
+- Pediatric population only, generalization to adult epilepsy is untested
+- Single institution (Children's Hospital Boston) site effects uncharacterized
 - Seizure annotations are at the onset/offset level; pre-ictal state is not labeled
 
 ---
@@ -100,7 +98,7 @@ shifts (chb01, chb09, chb10, chb11, chb22).
 
 ## Failure Modes
 
-**chb12:** Near-chance performance across all architectures (AUROC 0.305-0.761). Highest seizure burden in dataset (380 ictal windows) but lowest detectability. Likely an intrinsic signal property -- ictal spectral signature overlaps interictal baseline.
+**chb12:** Near-chance performance across all architectures (AUROC 0.305-0.761). Highest seizure burden in dataset (380 ictal windows) but lowest detectability. Likely an intrinsic signal property, ictal spectral signature overlaps interictal baseline.
 
 **chb14:** AUROC 0.968 subject-specific, 0.131 cross-subject (Architecture 3). Pure domain shift failure: the seizure signature is learnable but not represented in other patients' training data.
 
