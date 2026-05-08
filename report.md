@@ -425,7 +425,7 @@ We are also curious about whether DANN's adversarial objective is actually the r
 
 **Tamara Jafar:** Preprocessing pipeline implementation and validation, Architecture 1 (logistic regression) implementation and evaluation, Architecture 3 (cross-subject CNN-LSTM) training and evaluation, EEGNet model architecture, report writing (Introduction, Related Work, Dataset, Methodology, Results, Discussion, Conclusion).
 
-**Bayla Breningstall:** Architecture 2 (subject-specific CNN-LSTM) implementation and evaluation, Architecture 4 (DANN) implementation and training, memory-efficient data loading and HPC job scripting, checkpoint/resume infrastructure, repository organization.
+**Bayla Breningstall:** Architecture 2 (subject-specific CNN-LSTM) implementation and evaluation, Architecture 4 (DANN) implementation and training, memory-efficient data loading and HPC job scripting, checkpoint/resume infrastructure, SLURM job script development and execution on USC CARC (Center for Advanced Research Computing) including environment setup, job scheduling, and output management across all architectures, repository organization.
 
 ---
 
