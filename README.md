@@ -72,7 +72,7 @@ conda activate seizure
 pip install -r requirements.txt
 ```
 
-Then download the CHB-MIT dataset -- see [data/README.md](data/README.md).
+Then download the CHB-MIT dataset see [data/README.md](data/README.md).
 
 ---
 
