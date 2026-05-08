@@ -225,7 +225,7 @@ def fig_roc_curves(predictions: dict, figures_dir: Path):
 # Figure 5: Confusion matrices
 # ---------------------------------------------------------------------------
 
-def fig_confusion_matrices(predictions: dict, figures_dir: Path, results: dict | None = None):
+def fig_confusion_matrices(predictions: dict, figures_dir: Path, results=None):
     available = [t for t in ARCH_ORDER if t in predictions]
     if not available:
         print("  No prediction files -- skipping confusion matrices.")
