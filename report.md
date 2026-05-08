@@ -211,9 +211,9 @@ All hyperparameters were set based on literature defaults (EEGNet paper, Ganin e
 
 ### 5.1 Architecture 1: Logistic Regression Baseline
 
-The logistic regression baseline achieves a mean AUROC of 0.735 +/- 0.206 across 24 LOSO folds (Table 1). Despite moderate discriminability at the ranking level, sensitivity is low at 0.457 +/- 0.314 and F1 is very low at 0.054 +/- 0.073. The dissociation between AUROC and F1 reflects class imbalance: the logistic regression ranks ictal windows above interictal ones with moderate reliability, but at any fixed decision threshold the volume of false positives from the large interictal pool overwhelms the true positives.
+The logistic regression baseline achieves a mean AUROC of 0.735 +/- 0.206 across 24 LOSO folds (Table 1, Figure 1). Despite moderate discriminability at the ranking level, sensitivity is low at 0.457 +/- 0.314 and F1 is very low at 0.054 +/- 0.073 (Figure 2). The dissociation between AUROC and F1 reflects class imbalance: the logistic regression ranks ictal windows above interictal ones with moderate reliability, but at any fixed decision threshold the volume of false positives from the large interictal pool overwhelms the true positives.
 
-Performance varies substantially across subjects (Table 3). The model succeeds on chb01 (AUROC=0.991), chb22 (AUROC=0.967), chb17 (AUROC=0.923), and chb18 (AUROC=0.927). It fails on chb12 (AUROC=0.305), chb14 (AUROC=0.337), chb16 (AUROC=0.391), and chb06 (AUROC=0.476), all near or below chance. The standard deviation of 0.206 across folds is comparable in magnitude to the mean improvement over chance (0.235), indicating that this model generalizes to some patients but not others in a way that is not predictable from subject-level metadata available to us.
+Performance varies substantially across subjects (Table 7, Figure 3). The model succeeds on chb01 (AUROC=0.991), chb22 (AUROC=0.967), chb17 (AUROC=0.923), and chb18 (AUROC=0.927). It fails on chb12 (AUROC=0.305), chb14 (AUROC=0.337), chb16 (AUROC=0.391), and chb06 (AUROC=0.476), all near or below chance. The standard deviation of 0.206 across folds is comparable in magnitude to the mean improvement over chance (0.235), indicating that this model generalizes to some patients but not others in a way that is not predictable from subject-level metadata available to us.
 
 **Table 1.** Architecture 1 (logistic regression) aggregate LOSO-CV results.
 
@@ -227,7 +227,7 @@ Performance varies substantially across subjects (Table 3). The model succeeds o
 
 ### 5.2 Architecture 2: Subject-Specific EEGNet + BiLSTM
 
-The subject-specific CNN-LSTM achieves a mean AUROC of 0.975 +/- 0.051 across 24 folds (Table 2), a 0.240-point improvement over the logistic baseline. This confirms that the EEGNet + BiLSTM architecture learns substantially richer seizure representations when trained on the target subject's own data. Sensitivity rises to 0.620 +/- 0.368 and F1 to 0.441 +/- 0.305.
+The subject-specific CNN-LSTM achieves a mean AUROC of 0.975 +/- 0.051 across 24 folds (Table 2, Figure 1), a 0.240-point improvement over the logistic baseline. This confirms that the EEGNet + BiLSTM architecture learns substantially richer seizure representations when trained on the target subject's own data. Sensitivity rises to 0.620 +/- 0.368 and F1 to 0.441 +/- 0.305.
 
 The architecture achieves perfect or near-perfect AUROC on many subjects: chb01, chb03, chb09, chb19, and chb22 all reach AUROC=1.000. Variance is dominated by a small number of difficult subjects. chb12 is again the worst fold (AUROC=0.761), consistent with its near-chance performance under the logistic baseline, suggesting that its seizure characteristics are genuinely difficult regardless of architecture. chb04 (0.926) and chb16 (0.940) also fall below the group mean.
 
@@ -247,9 +247,9 @@ The 0.975 AUROC represents the performance ceiling for this architecture under t
 
 ### 5.3 Architecture 3: Naive Cross-Subject EEGNet + BiLSTM
 
-The naive cross-subject CNN-LSTM achieves a mean AUROC of 0.808 ± 0.216 across 24 folds (Table 4), a 0.167-point drop from the subject-specific ceiling of 0.975. This gap is the domain shift penalty: the performance cost of applying a model trained on 22 other patients to a new patient without any adaptation. Sensitivity collapses to 0.119 ± 0.208 and F1 to 0.097 ± 0.170, reflecting severe thresholding failure -- the model ranks ictal windows above many interictal ones at the score level, but its calibrated outputs are too low to cross the 0.5 threshold for most subjects.
+The naive cross-subject CNN-LSTM achieves a mean AUROC of 0.808 ± 0.216 across 24 folds (Table 4, Figure 1), a 0.167-point drop from the subject-specific ceiling of 0.975. This gap is the domain shift penalty: the performance cost of applying a model trained on 22 other patients to a new patient without any adaptation. Sensitivity collapses to 0.119 ± 0.208 and F1 to 0.097 ± 0.170, reflecting severe thresholding failure -- the model ranks ictal windows above many interictal ones at the score level, but its calibrated outputs are too low to cross the 0.5 threshold for most subjects.
 
-Per-subject AUROC (Table 5) shows that several subjects transfer well: chb01 (0.999), chb02 (0.998), chb09 (0.988), chb10 (0.982), and chb11 (0.983) all remain above 0.975 despite no access to target-subject data, suggesting their seizure signatures are consistent with those of training subjects. Generalization fails sharply for chb14 (0.131), chb20 (0.448), chb12 (0.499), and chb21 (0.618). chb14 is particularly striking: it achieves AUROC 0.968 under the subject-specific model but near-chance under cross-subject transfer, indicating its seizure signature is learnable from within-subject data but is not represented in the training distribution of other patients. chb12 remains near chance (0.499) under all cross-subject approaches, confirming that its failure is driven by intrinsic signal properties rather than distribution shift alone.
+Per-subject AUROC (Table 7, Figure 3) shows that several subjects transfer well: chb01 (0.999), chb02 (0.998), chb09 (0.988), chb10 (0.982), and chb11 (0.983) all remain above 0.975 despite no access to target-subject data, suggesting their seizure signatures are consistent with those of training subjects. Generalization fails sharply for chb14 (0.131), chb20 (0.448), chb12 (0.499), and chb21 (0.618). chb14 is particularly striking: it achieves AUROC 0.968 under the subject-specific model but near-chance under cross-subject transfer, indicating its seizure signature is learnable from within-subject data but is not represented in the training distribution of other patients. chb12 remains near chance (0.499) under all cross-subject approaches, confirming that its failure is driven by intrinsic signal properties rather than distribution shift alone.
 
 **Table 4.** Architecture 3 (naive cross-subject CNN-LSTM) aggregate LOSO-CV results.
 
@@ -263,7 +263,7 @@ Per-subject AUROC (Table 5) shows that several subjects transfer well: chb01 (0.
 
 ### 5.4 Architecture 4: DANN
 
-DANN achieves a mean AUROC of 0.783 ± 0.192 across 24 folds (Table 5) -- 0.025 points below the naive cross-subject baseline. The adversarial training does not recover the domain shift penalty; it slightly degrades ranking performance relative to Architecture 3. More importantly, sensitivity is 0.0 ± 0.0 and F1 is 0.0 ± 0.0 across all 24 folds. DANN predicts zero ictal windows at threshold 0.5 for every subject. This is a complete threshold collapse: the model's ictal probability scores rank windows in a meaningful order (AUROC > 0.5 for 22 of 24 subjects) but the scores are uniformly suppressed below 0.5, leaving the classifier effectively non-functional at any clinical operating threshold.
+DANN achieves a mean AUROC of 0.783 ± 0.192 across 24 folds (Table 5, Figure 1) -- 0.025 points below the naive cross-subject baseline. The adversarial training does not recover the domain shift penalty; it slightly degrades ranking performance relative to Architecture 3. More importantly, sensitivity is 0.0 ± 0.0 and F1 is 0.0 ± 0.0 across all 24 folds. DANN predicts zero ictal windows at threshold 0.5 for every subject. This is a complete threshold collapse: the model's ictal probability scores rank windows in a meaningful order (AUROC > 0.5 for 22 of 24 subjects) but the scores are uniformly suppressed below 0.5, leaving the classifier effectively non-functional at any clinical operating threshold.
 
 The most likely explanation is that adversarial training interferes with the calibration of the seizure classification head. As the GRL pushes the feature extractor toward subject-invariant representations, it also reduces the magnitude of seizure-discriminative features, flattening the output distribution of the seizure head. Because the class-imbalance structure of the problem requires ictal-predicting features to be large relative to the interictal baseline, even a modest suppression of feature magnitude by the domain gradient can push all ictal scores below threshold. This is consistent with the lambda annealing schedule: early in training the seizure head learns a useful representation, but as lambda ramps toward 1.0, the adversarial pressure steadily erodes calibration without a compensating benefit from subject-invariant features.
 
@@ -320,6 +320,22 @@ Per-subject AUROC is high for some subjects (chb10: 0.986, chb11: 0.981, chb03: 
 | chb24 | 127 | 0.842 | 0.986 | 0.910 | 0.892 |
 | **Mean** | | **0.735** | **0.975** | **0.808** | **0.783** |
 | **SD** | | **0.206** | **0.051** | **0.216** | **0.192** |
+
+Pooled ROC curves for Architectures 3 and 4 are shown in Figure 4; normalized confusion matrices are in Figure 5.
+
+---
+
+**Figure 1.** Mean AUROC ± SD across 24 LOSO folds for each architecture. Error bars show one standard deviation. Dashed line at 0.5 indicates chance. Architecture 2 (subject-specific CNN-LSTM) achieves the highest mean AUROC (0.975), establishing the performance ceiling. Architecture 1 (logistic regression, 0.735), Architecture 3 (naive cross-subject CNN-LSTM, 0.808), and Architecture 4 (DANN, 0.783) all fall substantially below this ceiling, with DANN performing marginally worse than the naive cross-subject baseline.
+
+**Figure 2.** Mean sensitivity, specificity, and F1 across 24 LOSO folds for each architecture. The AUROC/F1 dissociation is visible across all architectures: high specificity coexists with low sensitivity and near-zero F1, a consequence of the 10:1 weighted sampling strategy and class-imbalanced evaluation at a fixed threshold of 0.5.
+
+**Figure 3.** Per-subject AUROC for each architecture across all 24 held-out subjects. Each point represents one LOSO fold; horizontal bars show the mean. The wide spread within each architecture reflects the heterogeneity of seizure detectability across subjects. chb12 (lowest point, all architectures) and chb14 (low under cross-subject methods only) are identifiable as the most problematic subjects.
+
+**Figure 4.** Pooled ROC curves for Architectures 3 (naive cross-subject CNN-LSTM) and 4 (DANN), constructed by concatenating predicted probabilities and true labels across all 24 LOSO folds. Pooled AUC values reflect aggregate ranking performance across the full dataset. Architectures 1 and 2 are omitted because raw prediction files were not saved for those runs.
+
+**Figure 5.** Normalized confusion matrices for Architectures 3 and 4, pooled across all 24 LOSO folds. Values indicate the fraction of true positives and true negatives correctly classified at threshold 0.5. DANN's complete sensitivity failure (zero ictal detections at threshold 0.5 across all folds) is visible as a zero in the ictal/ictal cell.
+
+---
 
 ### 5.6 Failure Analysis
 
