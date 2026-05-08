@@ -1,4 +1,4 @@
-# Core scientific stack
+#requirements
 numpy>=1.24
 scipy>=1.11
 pandas>=2.0
@@ -6,7 +6,7 @@ scikit-learn>=1.3
 
 # EEG / signal processing
 mne>=1.6          # EDF loading and EEG utilities
-pyedflib>=0.1.28  # low-level EDF parsing fallback
+pyedflib>=0.1.28  # low level EDF parsing fallback
 
 # Deep learning
 torch>=2.1
