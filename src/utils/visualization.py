@@ -225,7 +225,7 @@ def fig_roc_curves(predictions: dict, figures_dir: Path):
 # Figure 5: Confusion matrices
 # ---------------------------------------------------------------------------
 
-def fig_confusion_matrices(predictions: dict, figures_dir: Path):
+def fig_confusion_matrices(predictions: dict, figures_dir: Path, results: dict | None = None):
     available = [t for t in ARCH_ORDER if t in predictions]
     if not available:
         print("  No prediction files -- skipping confusion matrices.")
@@ -238,7 +238,13 @@ def fig_confusion_matrices(predictions: dict, figures_dir: Path):
 
     for ax, tag in zip(axes, available):
         y_true = np.concatenate([d["y_true"] for d in predictions[tag].values()])
-        y_pred = (np.concatenate([d["y_prob"] for d in predictions[tag].values()]) >= 0.5).astype(int)
+        y_prob = np.concatenate([d["y_prob"] for d in predictions[tag].values()])
+        # Use per-architecture optimal threshold from results if available
+        thresh = 0.5
+        if results and tag in results:
+            thresholds = [f.get("threshold", 0.5) for f in results[tag]["per_fold"]]
+            thresh = float(np.median(thresholds))
+        y_pred = (y_prob >= thresh).astype(int)
         cm = confusion_matrix(y_true, y_pred, normalize="true")
 
         ax.imshow(cm, cmap="Blues", vmin=0, vmax=1)
@@ -287,6 +293,6 @@ def generate_all_figures(results_dir: Path, figures_dir: Path):
         fig_per_subject_auroc(results, figures_dir)
 
     fig_roc_curves(predictions, figures_dir)
-    fig_confusion_matrices(predictions, figures_dir)
+    fig_confusion_matrices(predictions, figures_dir, results=results)
 
     print(f"\nDone. Figures saved to {figures_dir}")

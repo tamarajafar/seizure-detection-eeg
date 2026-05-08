@@ -35,7 +35,8 @@ checkpoints/
 # Results (generated outputs)
 results/*.csv
 results/*.json
-results/figures/
+# Figures are now committed for project deliverable
+# results/figures/
 
 # macOS
 .DS_Store

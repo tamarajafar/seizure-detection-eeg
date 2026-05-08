@@ -11,7 +11,7 @@ University of Southern California, Spring 2026
 
 We train deep learning models to detect epileptic seizures from multichannel scalp EEG, with the primary challenge being generalization to patients unseen during training. The task is binary classification: given a 4-second EEG window from an unseen subject, predict whether it is ictal (seizure) or interictal (non-seizure).
 
-This is evaluated under **leave-one-subject-out (LOSO) cross-validation** across 23 subjects from the CHB-MIT dataset, the only protocol that honestly measures cross-subject generalization.
+This is evaluated under **leave-one-subject-out (LOSO) cross-validation** across 24 subjects from the CHB-MIT dataset, the only protocol that honestly measures cross-subject generalization.
 
 ---
 
@@ -111,7 +111,7 @@ Results are written to `results/`.
 
 ## Reproducing Reported Results
 
-All experiments use `seed: 42` (set in `configs/default.yaml`). Hardware differences may produce minor floating-point variation, but mean AUROC across 23 folds should match reported values within 0.5%.
+All experiments use `seed: 42` (set in `configs/default.yaml`). Hardware differences may produce minor floating-point variation, but mean AUROC across 24 folds should match reported values within 0.5%.
 
 ---
 
